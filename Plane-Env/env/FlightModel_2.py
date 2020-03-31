@@ -101,7 +101,7 @@ class FlightModel:
 
     def gamma(self):
         """
-        Compute gamma (the angle between ground and the speed vector) using trigonometry. 
+        Compute gamma (the angle between ground and the speed vector) using trigonometry.
         sin(gamma) = V_z / V -> gamma = arcsin(V_z/V)
         """
         if norm(self.V) > 0:
@@ -113,7 +113,7 @@ class FlightModel:
     def alpha(self, gamma):
         """
         Compute alpha (the angle between the plane's axis and the speed vector).
-        alpha = theta - gamma 
+        alpha = theta - gamma
         """
         alpha = self.theta - gamma
         return alpha
@@ -142,21 +142,21 @@ class FlightModel:
         """
         Compute the acceleration for a timestep based on the thrust by using Newton's second law : F = m.a <=> a = F/m with F the resultant of all forces
         applied on the oject, m its mass and a the acceleration o fthe object.
-        Variables used : 
+        Variables used :
         - P [Weight] in kg
         - V in m/s
         - gamma in rad
-        - alpha in rad 
+        - alpha in rad
         - S_x  in m^2
         - S_y in m^2
         - C_x (no units)
         - C_z (no units)
-    
+
 
 
         On the vertical axis (z):
         F_z = Lift_z(alpha) * cos(theta) + Thrust * sin(theta) - Drag_z(alpha) * sin(gamma)  - P
-        
+
         On the horizontal axis(x):
         F_x = Thrust_x  * cos(theta) - Drag_x(alpha) * cos(gamma) - Lift_x(alpha) * sin(theta)
 
@@ -388,12 +388,12 @@ class FlightModel:
         # plt.show()
 
 
-# Create Model
-Model = FlightModel()
+if __name__ == "__main__":
+    # Create Model
+    model = FlightModel()
 
-# Run simulation over number of episodes, with thrust and theta
-thrust = 113000 * 2  # 2 Reactors of 113kN each
-theta = 15
-number_episodes = 10000
-Model.compute_episodes(thrust, theta, number_episodes)
-
+    # Run simulation over number of episodes, with thrust and theta
+    thrust = 113000 * 2  # 2 Reactors of 113kN each
+    theta = 15
+    number_episodes = 10000
+    model.compute_episodes(thrust, theta, number_episodes)
