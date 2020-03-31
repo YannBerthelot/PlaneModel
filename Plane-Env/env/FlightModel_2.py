@@ -391,14 +391,6 @@ class FlightModel:
         # plt.show()
 
 
-# Create Model
-Model = FlightModel()
-
-# Run simulation over number of episodes, with thrust and theta
-thrust = 113000 * 2  # 2 Reactors of 113kN each
-theta = 15
-number_episodes = 500
-Model.compute_episodes(thrust, theta, number_episodes)
 
 if __name__ == "__main__":
     # Create Model
