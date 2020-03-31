@@ -88,12 +88,12 @@ class FlightModel:
         """
         Compute the lift coefficient depending on alpha (the higher the alpha, the higher the lift until stall)
         """
-        if np.degrees(alpha) < 15:
+        if abs(np.degrees(alpha)) < 15:
             # Quadratic evolution  from C_z = 0 for 0 degrees and reaching a max value of C_z = 1.5 for 15 degrees
-            return (np.degrees(alpha) / 15) * self.C_z_max
-        elif np.degrees(alpha) < 20:
+            return abs((np.degrees(alpha) / 15) * self.C_z_max)
+        elif abs(np.degrees(alpha) < 20):
             # Quadratic evolution  from C_z = 1.5 for 15 degrees to C_2 ~ 1.2 for 20 degrees.
-            return 1.5 - ((np.degrees(alpha) - 15) / 15) * 1.5
+            return abs(1.5 - ((np.degrees(alpha) - 15) / 15) * 1.5)
         else:
             ##if alpha > 20 degrees : Stall => C_z = 0
             print("stall")
@@ -387,12 +387,13 @@ class FlightModel:
         # plt.legend()
         # plt.show()
 
-#Create Model
+
+# Create Model
 Model = FlightModel()
 
-#Run simulation over number of episodes, with thrust and theta
-thrust = 113000 * 2 #2 Reactors of 113kN each
-theta  = 15 
+# Run simulation over number of episodes, with thrust and theta
+thrust = 113000 * 2  # 2 Reactors of 113kN each
+theta = 15
 number_episodes = 10000
 Model.compute_episodes(thrust, theta, number_episodes)
 
