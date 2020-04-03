@@ -18,10 +18,12 @@ class PlaneEnvironment(gym.Env):
 
         self.current_step = 0
         self.FlightModel = FlightModel()
+        self.NUM_ACTIONS = len(self.FlightModel.action_vec)
 
         # ACTIONS
         # Possible thrust values
-        self.action_space = spaces.Discrete(10)
+        self.action_space = spaces.Discrete(self.NUM_ACTIONS)
+        self.action = 0
 
         # STATES
         self.observation_space = spaces.Box(
@@ -37,6 +39,7 @@ class PlaneEnvironment(gym.Env):
 
     def step(self, action):
         # Execute one time step within the environment
+        self.action = action
         self.current_step += 1
         obs, reward, done = self.FlightModel.compute_episode(action)
         if self.current_step > 1000:
@@ -44,4 +47,12 @@ class PlaneEnvironment(gym.Env):
         return obs, reward, done, {}
 
     def render(self, mode="human", close=False):
-        print(self.current_step, self.FlightModel.Pos)
+        print(
+            "step:",
+            self.current_step,
+            " Pos ",
+            self.FlightModel.Pos,
+            "Action",
+            self.FlightModel.action_vec[self.action],
+        )
+        # self.FlightModel._animate_plane()

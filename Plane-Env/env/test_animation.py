@@ -45,13 +45,18 @@ def animate_plane(Pos_vec, Theta_vec):
 
             # Rotate the ship
             self.angle += self.change_angle
+            print("i", self.i, "x_vec", x_vec)
+
+            x_scale_factor = 0.1
+            y_scale_factor = 1
 
             # Use math to find our change based on our speed and angle
-            self.center_x = 300 + x_vec[self.i] * 0.0005
+            self.center_x = 300 + x_vec[self.i] * x_scale_factor
 
-            self.center_y = y_vec[self.i] * 0.005 + 300
-            if self.i < len(x_vec):
-                self.i += 100
+            self.center_y = y_vec[self.i] * y_scale_factor + 300
+            delta = 1
+            if self.i + delta < len(x_vec):
+                self.i += delta
 
     class MyGame(arcade.Window):
         """

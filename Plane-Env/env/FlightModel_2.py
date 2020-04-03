@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from numpy import arcsin
 from numpy.linalg import norm
-from test_animation import animate_plane
+from .test_animation import animate_plane
 
 
 class FlightModel:
@@ -65,6 +65,15 @@ class FlightModel:
         self.min_A = 0  # Record minimal acceleration
         self.max_V = 0  # Record maximal speed
         self.min_V = 0  # Record minimal speed
+
+        """
+        ACTIONS:
+        Action vec for RL stocking thrust and theta values
+        """
+
+        self.action_vec = [
+            [thrust, theta] for thrust in range(11) for theta in range(-5, 6)
+        ]
 
     def drag(self, S, V, C):
         """
@@ -262,7 +271,7 @@ class FlightModel:
         print("min V", self.min_V)
 
     def done(self):
-        return self.Pos[0] > 10000
+        return self.Pos[0] > 1000
 
     def compute_episodes(self, thrust, theta, num_episodes):
         """
@@ -281,6 +290,7 @@ class FlightModel:
 
             # Compute the dynamics for the episode
             self.compute_dyna(thrust_modified)
+            print("step:", i, " Pos ", self.Pos)
 
         # Plot interesting graphs after all episodes have ended.
         # self.plot_graphs()
@@ -291,17 +301,20 @@ class FlightModel:
         self.min_V = [min(self.V_vec[0]), min(self.V_vec[1])]
         self.print_kpis()
 
-    def compute_episode(self, thrust):
+    def compute_episode(self, action):
+
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
         Variables : Thrust in N, theta in degrees, number of episodes (no unit)
         """
         # switch theta from degrees to radians and store it in the class
-        self.theta = np.radians(5)
-
+        # self.theta = np.radians(5)
+        action_vec = self.action_vec[action]
+        thrust_factor = action_vec[0] / 10
+        self.theta = np.radians(action_vec[1]*5)
         # Apply the atitude factor to the thrust
 
-        thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
+        thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX
 
         # Compute the dynamics for the episode
         self.compute_dyna(thrust_modified)
@@ -312,7 +325,7 @@ class FlightModel:
 
     def reward(self, done):
         if done:
-            return 1000
+            return 100
         else:
             return -1
 
@@ -457,6 +470,9 @@ class FlightModel:
         plt.legend()
         plt.show()
 
+    def _animate_plane(self):
+        animate_plane(self.Pos_vec, self.theta_vec)
+
 
 if __name__ == "__main__":
     # Create Model
@@ -464,7 +480,7 @@ if __name__ == "__main__":
     # Run simulation over number of episodes, with thrust and theta
     thrust = 113000 * 2  # 2 Reactors of 113kN each
     theta = 10
-    number_episodes = 50000
+    number_episodes = 500
     model.compute_episodes(thrust, theta, number_episodes)
-    animate_plane(model.Pos_vec,model.theta_vec)
+    # animate_plane(model.Pos_vec, model.theta_vec)
 
