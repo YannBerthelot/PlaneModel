@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from numpy import arcsin
 from numpy.linalg import norm
+from test_animation import animate_plane
 
 
 class FlightModel:
@@ -33,7 +34,7 @@ class FlightModel:
         self.V = [(0), (0)]  # Speed Vector
         self.Pos = [(0), (0)]  # Position vector
         self.theta = 0  # Angle between the plane's axis and the ground
-
+        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
         """
         LISTS FOR PLOT:
         Lists initialization to store values in order to monitor them through graphs
@@ -97,7 +98,6 @@ class FlightModel:
             return abs(1 - ((abs(np.degrees(alpha)) - 15) / 15) * self.C_z_max)
         else:
             ##if alpha > 20 degrees : Stall => C_z = 0
-            print("stall")
             return 0
 
     def gamma(self):
@@ -206,7 +206,6 @@ class FlightModel:
 
         # Check if we are on the ground, if so prevent from going underground by setting  vertical position and vertical speed to 0.
         if self.check_colisions() and F_z <= 0:
-            print("colision")
             F_z = 0
             # energy = 0.5 * self.m * V ** 2
             self.V[1] = 0
@@ -262,6 +261,9 @@ class FlightModel:
         print("max V", self.max_V)
         print("min V", self.min_V)
 
+    def done(self):
+        return self.Pos[0] > 10000
+
     def compute_episodes(self, thrust, theta, num_episodes):
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -271,35 +273,48 @@ class FlightModel:
         self.theta = np.radians(theta)
         # Change alpha from rad to deg
         for i in range(num_episodes):
-            #To be used for autopilot, removed while debugging
-            if self.Pos[1] < 8000:
-                thrust_factor = 1
-                if self.V[0] > self.V_1:
-                    self.V_1_ok = True
-                if self.V_1_ok:
-                    if self.theta < np.radians(10):
-                        self.theta += 0.01
-                else:
-                    self.theta = np.radians(0)
-            else:
-                thrust_factor = 0.8
-                if self.theta>np.radians(5):
-                    self.theta += -0.01
-            #Apply the atitude factor to the thrust
+            # To be used for autopilot, removed while debugging
 
-            thrust_modified = thrust * self.altitude_factor() *thrust_factor
+            # Apply the atitude factor to the thrust
+
+            thrust_modified = thrust * self.altitude_factor()
 
             # Compute the dynamics for the episode
             self.compute_dyna(thrust_modified)
 
         # Plot interesting graphs after all episodes have ended.
-        self.plot_graphs()
+        # self.plot_graphs()
         self.max_alt = max(self.Pos_vec[1])
         self.max_A = [max(self.A_vec[0]), max(self.A_vec[1])]
         self.min_A = [min(self.A_vec[0]), min(self.A_vec[1])]
         self.max_V = [max(self.V_vec[0]), max(self.V_vec[1])]
         self.min_V = [min(self.V_vec[0]), min(self.V_vec[1])]
         self.print_kpis()
+
+    def compute_episode(self, thrust):
+        """
+        Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
+        Variables : Thrust in N, theta in degrees, number of episodes (no unit)
+        """
+        # switch theta from degrees to radians and store it in the class
+        self.theta = np.radians(5)
+
+        # Apply the atitude factor to the thrust
+
+        thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
+
+        # Compute the dynamics for the episode
+        self.compute_dyna(thrust_modified)
+        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+        done = self.done()
+        reward = self.reward(done)
+        return self.obs, reward, done
+
+    def reward(self, done):
+        if done:
+            return 1000
+        else:
+            return -1
 
     def altitude_factor(self):
         """
@@ -449,5 +464,7 @@ if __name__ == "__main__":
     # Run simulation over number of episodes, with thrust and theta
     thrust = 113000 * 2  # 2 Reactors of 113kN each
     theta = 10
-    number_episodes = 500000
+    number_episodes = 50000
     model.compute_episodes(thrust, theta, number_episodes)
+    animate_plane(model.Pos_vec,model.theta_vec)
+
