@@ -17,14 +17,14 @@ class FlightModel:
         self.g = 9.81  # gravity vector
         self.m = 73500  # mass
         self.RHO = 1.225  # air density
-        self.S_front = 12  # Frontal surface
+        self.S_front = 12.6  # Frontal surface
         self.S_wings = 120  # Wings surface
         self.C_x_min = 0.08  # Drag coefficient
         self.C_z_max = 1.5  # Lift coefficient
         self.THRUST_MAX = 113000 * 2  # Max thrust
         self.DELTA_T = 0.1  # Timestep size
         self.V_1 = 150  # V1 for takeoff
-        self.V_1_ok = False  # Has V1 been reached
+        self.V_1_ok = False  # H    as V1 been reached
 
         """
         DYNAMICS
@@ -335,7 +335,7 @@ class FlightModel:
         Compute the reducting in reactor's power with rising altitude. Not ready yet
         """
         alt = self.Pos[1]
-        a = 1 / (math.exp(alt / 60000))
+        a = 1 / (math.exp(alt / 15000))
         self.alt_factor_vec.append(a ** 0.7)
         return max(0, min(1, a ** (0.7)))
 
