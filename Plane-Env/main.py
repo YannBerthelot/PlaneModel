@@ -4,7 +4,7 @@ import datetime as dt
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2
-from env.FlightModel_2 import FlightModel
+from env.FlightModel import FlightModel
 from env.FlightEnv import PlaneEnvironment
 
 FlightModel = FlightModel()

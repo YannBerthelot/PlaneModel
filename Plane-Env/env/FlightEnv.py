@@ -1,4 +1,4 @@
-from .FlightModel_2 import FlightModel
+from .FlightModel import FlightModel
 
 import numpy as np
 import gym
