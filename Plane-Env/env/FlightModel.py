@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from numpy import arcsin
 from numpy.linalg import norm
-from .test_animation import animate_plane
+
+# from .test_animation import animate_plane
 
 
 class FlightModel:
@@ -70,9 +71,10 @@ class FlightModel:
         ACTIONS:
         Action vec for RL stocking thrust and theta values
         """
-
+        self.timestep = 0
+        self.timestep_max = 1000
         self.action_vec = [
-            [thrust, theta] for thrust in range(11) for theta in range(-5, 6)
+            [thrust, theta] for thrust in range(5,11) for theta in range(0, 3)
         ]
 
     def drag(self, S, V, C):
@@ -85,7 +87,7 @@ class FlightModel:
         F = 1/2 * S * C * V^2
         """
         # print("S", S, "C", C, "V", V)
-        return 0.5 * self.RHO * S * C * np.power(V, 2)
+        return 0.5 * self.RHO * self.altitude_factor() * S * C * np.power(V, 2)
 
     def C_x(self, alpha):
         """
@@ -99,12 +101,13 @@ class FlightModel:
         Compute the lift coefficient depending on alpha (the higher the alpha, the higher the lift until stall)
         """
         # return self.C_z_max
+        sign = np.sign(np.degrees(alpha))
         if abs(np.degrees(alpha)) < 15:
             # Quadratic evolution  from C_z = 0 for 0 degrees and reaching a max value of C_z = 1.5 for 15 degrees
-            return abs((np.degrees(alpha) / 15) * self.C_z_max)
+            return sign * abs((np.degrees(alpha) / 15) * self.C_z_max)
         elif abs(np.degrees(alpha)) < 20:
             # Quadratic evolution  from C_z = 1.5 for 15 degrees to C_2 ~ 1.2 for 20 degrees.
-            return abs(1 - ((abs(np.degrees(alpha)) - 15) / 15) * self.C_z_max)
+            return sign * abs(1 - ((abs(np.degrees(alpha)) - 15) / 15) * self.C_z_max)
         else:
             ##if alpha > 20 degrees : Stall => C_z = 0
             return 0
@@ -270,9 +273,6 @@ class FlightModel:
         print("max V", self.max_V)
         print("min V", self.min_V)
 
-    def done(self):
-        return self.Pos[0] > 1000
-
     def compute_episodes(self, thrust, theta, num_episodes):
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -286,14 +286,14 @@ class FlightModel:
 
             # Apply the atitude factor to the thrust
 
-            thrust_modified = thrust * self.altitude_factor()
+            thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
 
             # Compute the dynamics for the episode
             self.compute_dyna(thrust_modified)
             print("step:", i, " Pos ", self.Pos)
 
         # Plot interesting graphs after all episodes have ended.
-        # self.plot_graphs()
+        self.plot_graphs()
         self.max_alt = max(self.Pos_vec[1])
         self.max_A = [max(self.A_vec[0]), max(self.A_vec[1])]
         self.min_A = [min(self.A_vec[0]), min(self.A_vec[1])]
@@ -311,7 +311,9 @@ class FlightModel:
         # self.theta = np.radians(5)
         action_vec = self.action_vec[action]
         thrust_factor = action_vec[0] / 10
-        self.theta = np.radians(action_vec[1]*5)
+        self.theta = np.radians(action_vec[1] * 5)
+        #print('timestep',self.timestep)
+        self.timestep += 1
         # Apply the atitude factor to the thrust
 
         thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX
@@ -320,15 +322,28 @@ class FlightModel:
         self.compute_dyna(thrust_modified)
         self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
         done = self.done()
-        reward = self.reward(done)
-        return self.obs, reward, done
+        #reward = self.reward(done)
+        return self.obs , done
+
+    def done(self):
+        self.finished = self.Pos[1] > 20000
+        #and self.Pos[0]>100000
+        return (self.finished) or (self.timestep > self.timestep_max)
+        # return self.Pos[0] > 10000 and self.Pos[1] > 1000
 
     def reward(self, done):
+        reward = 0
         if done:
-            return 100
+            if (self.finished):
+                reward += 1000
+            else:
+                reward += -1000
         else:
-            return -1
-
+            if self.Pos[1] > 0:
+                reward += self.Pos[0] + self.Pos[1]
+            else:
+                reward += self.Pos[0]
+        return reward
     def altitude_factor(self):
         """
         WIP
@@ -478,9 +493,9 @@ if __name__ == "__main__":
     # Create Model
     model = FlightModel()
     # Run simulation over number of episodes, with thrust and theta
-    thrust = 113000 * 2  # 2 Reactors of 113kN each
+    thrust = 1  # 2 Reactors of 113kN each
     theta = 10
-    number_episodes = 500
+    number_episodes = 5000 * 2
     model.compute_episodes(thrust, theta, number_episodes)
     # animate_plane(model.Pos_vec, model.theta_vec)
 

@@ -1,58 +1,80 @@
-import gym
-import json
-import datetime as dt
-from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.common.vec_env import DummyVecEnv
-from stable_baselines import PPO2
+import os
+import time
 from env.FlightModel import FlightModel
 from env.FlightEnv import PlaneEnvironment
+from utils import write_to_txt
+from env.AnimatePlane import animate_plane
+from tensorforce import Agent, Environment
 
+
+def train(n_episodes, max_step_per_episode):
+    """
+    Train agent for n_episodes
+    """
+    start_time = time.time()
+    sum_rewards = 0.0
+    environment.FlightModel.timestep_max = max_step_per_episode
+    for i in range(n_episodes):
+        temp_time = time.time() - start_time
+        time_per_episode = temp_time / (i + 1)
+        print(
+            "episode : ",
+            i,
+            "time per episode",
+            round(time_per_episode, 2),
+            "estimated time to finish",
+            int(time_per_episode * n_episodes),
+        )
+        # Initialize episode
+        states = environment.reset()
+        internals = agent.initial_internals()
+        terminal = False
+
+        while not terminal:
+            # Episode timestep
+            actions = agent.act(states=states)
+
+            states, terminal, reward = environment.execute(actions=actions)
+
+            agent.observe(terminal=terminal, reward=reward)
+            sum_rewards += reward
+            if terminal:
+                print(FlightModel.action_vec[actions], FlightModel.timestep)
+                print(states, terminal, reward)
+
+    end_time = time.time()
+    total_time = end_time - start_time
+    print("total_time", total_time)
+
+
+# Instantiate our Flight Model
 FlightModel = FlightModel()
-# env = DummyVecEnv(PlaneEnvironment())
-env = PlaneEnvironment()
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten
-from keras.optimizers import Adam
-from rl.agents.cem import CEMAgent
-from rl.memory import EpisodeParameterMemory
-
-nb_actions = PlaneEnvironment().NUM_ACTIONS
-model = Sequential()
-model.add(Flatten(input_shape=(1,) + env.observation_space.shape))
-model.add(Dense(nb_actions))
-model.add(Dense(nb_actions))
-model.add(Dense(nb_actions))
-model.add(Dense(nb_actions))
-model.add(Activation("softmax"))
-obs = env.reset()
-print(model.summary())
-
-memory = EpisodeParameterMemory(limit=1000, window_length=1)
-
-cem = CEMAgent(
-    model=model,
-    nb_actions=nb_actions,
-    memory=memory,
-    nb_steps_warmup=2000,
-    train_interval=50,
-    elite_frac=0.05,
+# Instantiane our environment
+environment = PlaneEnvironment()
+# Instantiate a Tensorforce agent
+agent = Agent.create(
+    agent="tensorforce",
+    environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
+    memory=100000,
+    update=dict(unit="timesteps", batch_size=64),
+    optimizer=dict(type="adam", learning_rate=1e-3),
+    policy=dict(network="auto"),
+    objective="policy_gradient",
+    reward_estimation=dict(horizon=1000),
 )
-cem.compile()
 
-# Okay, now it's time to learn something! We visualize the training here for show, but this
-# slows down training quite a lot. You can always safely abort the training prematurely using
-# Ctrl + C.
-cem.fit(env, nb_steps=100000, visualize=False, verbose=1)
+# Define train parameters
+max_step_per_episode = 1000
+n_episodes = 50
+# Train agent
+train(n_episodes, max_step_per_episode)
 
-# After training is done, we save the best weights.
-cem.save_weights("cem_{}_params.h5f".format("PlaneEnv"), overwrite=True)
+# Save last run positions
+write_to_txt(environment)
+# Animate last run positions
+animate_plane()
 
-# Finally, evaluate our algorithm for 5 episodes.
-cem.test(env, nb_episodes=5, visualize=True)
 
-# for i in range(2000):
-#     print(obs,env.observation_space.shape)
-#     action, _states = model.predict(obs)
-#     obs, rewards, done, info = env.step(action)
-#
-
+# End
+agent.close()
+environment.close()
