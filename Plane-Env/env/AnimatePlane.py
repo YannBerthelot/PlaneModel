@@ -1,19 +1,24 @@
-"""
-Move Sprite by Angle
-
-Simple program to show basic sprite usage.
-
-Artwork from http://kenney.nl
-
-If Python and Arcade are installed, this example can be run from the command line with:
-python -m arcade.examples.sprite_move_angle
-"""
 import arcade
 import os
 import math
 
 
-def animate_plane(Pos_vec, Theta_vec):
+def read_txt():
+    cur_path = os.path.dirname(__file__)
+
+    new_path = os.path.join(cur_path, "positions.txt")
+    raw_pos = open(new_path, "r").read()
+    Pos_vec = eval(raw_pos)
+
+    new_path = os.path.join(cur_path, "angles.txt")
+    raw_ang = open(new_path, "r").read()
+    theta_vec = eval(raw_ang)
+
+    return Pos_vec, theta_vec
+
+
+def animate_plane():
+    Pos_vec, theta_vec = read_txt()
     y_vec = Pos_vec[1]
     x_vec = Pos_vec[0]
 
@@ -44,8 +49,8 @@ def animate_plane(Pos_vec, Theta_vec):
             angle_rad = math.radians(self.angle)
 
             # Rotate the ship
-            self.angle += self.change_angle
-            print("i", self.i, "x_vec", x_vec)
+            self.angle = theta_vec[self.i]
+            # print("i", self.i, "x_vec", x_vec)
 
             x_scale_factor = 0.1
             y_scale_factor = 1
@@ -117,30 +122,9 @@ def animate_plane(Pos_vec, Theta_vec):
             # example though.)
             self.player_list.update()
 
-        def on_key_press(self, key, modifiers):
-            """Called whenever a key is pressed. """
-
-            # Forward/back
-            if key == arcade.key.UP:
-                self.player_sprite.speed = MOVEMENT_SPEED
-            elif key == arcade.key.DOWN:
-                self.player_sprite.speed = -MOVEMENT_SPEED
-
-            # Rotate left/right
-            elif key == arcade.key.LEFT:
-                self.player_sprite.change_angle = ANGLE_SPEED
-            elif key == arcade.key.RIGHT:
-                self.player_sprite.change_angle = -ANGLE_SPEED
-
-        def on_key_release(self, key, modifiers):
-            """Called when the user releases a key. """
-
-            if key == arcade.key.UP or key == arcade.key.DOWN:
-                self.player_sprite.speed = 0
-            elif key == arcade.key.LEFT or key == arcade.key.RIGHT:
-                self.player_sprite.change_angle = 0
-
     window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     window.setup()
     arcade.run()
 
+
+animate_plane()
