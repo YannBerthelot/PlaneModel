@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from numpy import arcsin
 from numpy.linalg import norm
+from math import ceil, floor
+
+# from .AnimatePlane import animate_plane
+# from ..utils import write_to_txt
 
 # from .test_animation import animate_plane
 
@@ -74,8 +78,16 @@ class FlightModel:
         self.timestep = 0
         self.timestep_max = 1000
         self.action_vec = [
-            [thrust, theta] for thrust in range(5,11) for theta in range(0, 3)
+            [thrust, theta] for thrust in range(5, 11) for theta in range(0, 3)
         ]
+
+    def reset(self):
+        self.A = [(0), (0)]  # Acceleration vector
+        self.V = [(0), (0)]  # Speed Vector
+        self.Pos = [(0), (0)]  # Position vector
+        self.theta = 0  # Angle between the plane's axis and the ground
+        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+        self.timestep = 0
 
     def drag(self, S, V, C):
         """
@@ -272,8 +284,9 @@ class FlightModel:
         print("min A", self.min_A)
         print("max V", self.max_V)
         print("min V", self.min_V)
+        print("max x", max(self.Pos_vec[0]))
 
-    def compute_episodes(self, thrust, theta, num_episodes):
+    def compute_episode(self, thrust, theta, number_timesteps):
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
         Variables : Thrust in N, theta in degrees, number of episodes (no unit)
@@ -281,7 +294,7 @@ class FlightModel:
         # switch theta from degrees to radians and store it in the class
         self.theta = np.radians(theta)
         # Change alpha from rad to deg
-        for i in range(num_episodes):
+        for i in range(number_timesteps):
             # To be used for autopilot, removed while debugging
 
             # Apply the atitude factor to the thrust
@@ -290,18 +303,18 @@ class FlightModel:
 
             # Compute the dynamics for the episode
             self.compute_dyna(thrust_modified)
-            print("step:", i, " Pos ", self.Pos)
+            # print("step:", i, " Pos ", self.Pos)
 
         # Plot interesting graphs after all episodes have ended.
-        self.plot_graphs()
+        # self.plot_graphs()
         self.max_alt = max(self.Pos_vec[1])
         self.max_A = [max(self.A_vec[0]), max(self.A_vec[1])]
         self.min_A = [min(self.A_vec[0]), min(self.A_vec[1])]
         self.max_V = [max(self.V_vec[0]), max(self.V_vec[1])]
         self.min_V = [min(self.V_vec[0]), min(self.V_vec[1])]
-        self.print_kpis()
+        # self.print_kpis()
 
-    def compute_episode(self, action):
+    def compute_timestep(self, action):
 
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -312,7 +325,7 @@ class FlightModel:
         action_vec = self.action_vec[action]
         thrust_factor = action_vec[0] / 10
         self.theta = np.radians(action_vec[1] * 5)
-        #print('timestep',self.timestep)
+        # print('timestep',self.timestep)
         self.timestep += 1
         # Apply the atitude factor to the thrust
 
@@ -320,30 +333,33 @@ class FlightModel:
 
         # Compute the dynamics for the episode
         self.compute_dyna(thrust_modified)
-        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
-        done = self.done()
-        #reward = self.reward(done)
-        return self.obs , done
+        self.obs = [
+            ceil(self.Pos[0]),
+            ceil(self.Pos[1]),
+            ceil(self.V[0]),
+            floor(self.V[1]),
+        ]
+        # done = self.done()
+        # reward = self.reward(done)
+        return self.obs
 
-    def done(self):
-        self.finished = self.Pos[1] > 20000
-        #and self.Pos[0]>100000
-        return (self.finished) or (self.timestep > self.timestep_max)
-        # return self.Pos[0] > 10000 and self.Pos[1] > 1000
+    # def done(self):
+    #     self.finished = self.Pos[1] > 10000
+    #     return (self.finished) or (self.timestep > self.timestep_max)
 
-    def reward(self, done):
-        reward = 0
-        if done:
-            if (self.finished):
-                reward += 1000
-            else:
-                reward += -1000
-        else:
-            if self.Pos[1] > 0:
-                reward += self.Pos[0] + self.Pos[1]
-            else:
-                reward += self.Pos[0]
-        return reward
+    # def reward(self, done):
+    #     reward = 0
+    #     if done:
+    #         if (self.finished):
+    #             reward += 1000
+    #         else:
+    #             reward += -1000
+    #     else:
+    #         if self.Pos[1] > 0:
+    #             reward += self.Pos[0] + self.Pos[1]
+    #         else:
+    #             reward += self.Pos[0]
+    #     return reward
     def altitude_factor(self):
         """
         WIP
@@ -412,78 +428,78 @@ class FlightModel:
         # plt.show()
 
         # Z-axis
-        Force_vec_z = [element * self.m for element in self.A_vec[1]]
-        y = pd.Series(self.drag_vec[1])
-        x = pd.Series(self.V_vec[1])
-        plt.scatter(x, y)
-        plt.title("Drag z vs Vz")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
+        # Force_vec_z = [element * self.m for element in self.A_vec[1]]
+        # y = pd.Series(self.drag_vec[1])
+        # x = pd.Series(self.V_vec[1])
+        # plt.scatter(x, y)
+        # plt.title("Drag z vs Vz")
+        # plt.autoscale()
+        # plt.legend()
+        # plt.show()
 
-        ax = pd.Series(self.alpha_vec).plot(label="Alpha")
-        pd.Series(self.gamma_vec).plot(label="Gamma", ax=ax)
-        pd.Series(self.theta_vec).plot(label="Theta", ax=ax)
-        plt.title("Angles")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
+        # ax = pd.Series(self.alpha_vec).plot(label="Alpha")
+        # pd.Series(self.gamma_vec).plot(label="Gamma", ax=ax)
+        # pd.Series(self.theta_vec).plot(label="Theta", ax=ax)
+        # plt.title("Angles")
+        # plt.autoscale()
+        # plt.legend()
+        # plt.show()
 
-        ax = pd.Series(self.lift_vec[1]).plot(label="Lift z")
-        pd.Series(self.P_vec).plot(label="P", ax=ax)
-        pd.Series(self.T_vec[1]).plot(label="Thrust z", ax=ax)
-        pd.Series(self.drag_vec[1]).plot(label="Drag z", ax=ax)
-        pd.Series(Force_vec_z).plot(label="Total z", ax=ax)
-        plt.title("Z-axis")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
-        # X-axis
-        Force_vec_x = [element * self.m for element in self.A_vec[0]]
-        ax = pd.Series(self.T_vec[0]).plot(label="Thrust x")
-        pd.Series(self.drag_vec[0]).plot(label="Drag x", ax=ax)
-        pd.Series(self.lift_vec[0]).plot(label="Lift x", ax=ax)
-        pd.Series(Force_vec_x).plot(label="Total x", ax=ax)
-        plt.title("Xaxis")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
+        # ax = pd.Series(self.lift_vec[1]).plot(label="Lift z")
+        # pd.Series(self.P_vec).plot(label="P", ax=ax)
+        # pd.Series(self.T_vec[1]).plot(label="Thrust z", ax=ax)
+        # pd.Series(self.drag_vec[1]).plot(label="Drag z", ax=ax)
+        # pd.Series(Force_vec_z).plot(label="Total z", ax=ax)
+        # plt.title("Z-axis")
+        # plt.autoscale()
+        # plt.legend()
+        # plt.show()
+        # # X-axis
+        # Force_vec_x = [element * self.m for element in self.A_vec[0]]
+        # ax = pd.Series(self.T_vec[0]).plot(label="Thrust x")
+        # pd.Series(self.drag_vec[0]).plot(label="Drag x", ax=ax)
+        # pd.Series(self.lift_vec[0]).plot(label="Lift x", ax=ax)
+        # pd.Series(Force_vec_x).plot(label="Total x", ax=ax)
+        # plt.title("Xaxis")
+        # plt.autoscale()
+        # plt.legend()
+        # plt.show()
 
         color = "tab:red"
 
-        ax = pd.Series(self.A_vec[0]).plot(label="A_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.A_vec[1]).plot(ax=ax2, label="A_y", color=color)
-        plt.title("Acceleration")
-        plt.legend()
-        plt.show()
+        # ax = pd.Series(self.A_vec[0]).plot(label="A_x")
+        # ax.set_ylabel("X")
+        # ax2 = ax.twinx()
+        # ax2.set_ylabel("Y", color=color)
+        # pd.Series(self.A_vec[1]).plot(ax=ax2, label="A_y", color=color)
+        # plt.title("Acceleration")
+        # plt.legend()
+        # plt.show()
 
-        ax = pd.Series(self.V_vec[0]).plot(label="V_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.V_vec[1]).plot(ax=ax2, label="V_y", color=color)
-        plt.title("Speed")
-        plt.legend()
-        plt.show()
+        # ax = pd.Series(self.V_vec[0]).plot(label="V_x")
+        # ax.set_ylabel("X")
+        # ax2 = ax.twinx()
+        # ax2.set_ylabel("Y", color=color)
+        # pd.Series(self.V_vec[1]).plot(ax=ax2, label="V_y", color=color)
+        # plt.title("Speed")
+        # plt.legend()
+        # plt.show()
 
-        ax = pd.Series(self.Pos_vec[0]).plot(label="Pos_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.Pos_vec[1]).plot(ax=ax2, label="Pos_y", color=color)
-        plt.title("Position")
-        plt.legend()
-        plt.show()
+        # ax = pd.Series(self.Pos_vec[0]).plot(label="Pos_x")
+        # ax.set_ylabel("X")
+        # ax2 = ax.twinx()
+        # ax2.set_ylabel("Y", color=color)
+        # pd.Series(self.Pos_vec[1]).plot(ax=ax2, label="Pos_y", color=color)
+        # plt.title("Position")
+        # plt.legend()
+        # plt.show()
 
-        y = pd.Series(self.alt_factor_vec)
-        x = pd.Series(self.Pos_vec[1])
-        plt.scatter(x, y)
-        plt.title("Altitude vs Alt factor")
-        plt.legend()
-        plt.show()
+        # y = pd.Series(self.alt_factor_vec)
+        # x = pd.Series(self.Pos_vec[1])
+        # plt.scatter(x, y)
+        # plt.title("Altitude vs Alt factor")
+        # plt.legend()
+        # plt.show()
 
     def _animate_plane(self):
         animate_plane(self.Pos_vec, self.theta_vec)
@@ -493,9 +509,20 @@ if __name__ == "__main__":
     # Create Model
     model = FlightModel()
     # Run simulation over number of episodes, with thrust and theta
-    thrust = 1  # 2 Reactors of 113kN each
-    theta = 10
-    number_episodes = 5000 * 2
-    model.compute_episodes(thrust, theta, number_episodes)
-    # animate_plane(model.Pos_vec, model.theta_vec)
+    thrust = 1  # 100% power
+    theta = 0
+    number_timesteps = 100
+    max_x = []
+    max_z = []
+    for thrust in range(5, 11):
+        thrust = thrust / 10
+        print(thrust)
+        model.compute_episode(thrust, theta, number_timesteps)
+        max_x.append(max(model.Pos_vec[0]))
+        max_z.append(max(model.Pos_vec[1]))
+    print(max_x)
+    pd.Series(max_x).plot()
+    pd.Series(max_z).plot()
+    # write_to_txt(environment)
+    # animate_plane()
 

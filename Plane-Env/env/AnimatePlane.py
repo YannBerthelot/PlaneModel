@@ -56,7 +56,7 @@ def animate_plane():
             y_scale_factor = 1
 
             # Use math to find our change based on our speed and angle
-            self.center_x = 300 + x_vec[self.i] * x_scale_factor
+            self.center_x = 100 + x_vec[self.i] * x_scale_factor
 
             self.center_y = y_vec[self.i] * y_scale_factor + 300
             delta = 1
@@ -98,7 +98,7 @@ def animate_plane():
             # Sprite lists
             self.player_list = arcade.SpriteList()
 
-            # Set up the player
+            # Set up the plane
             self.player_sprite = Player("plane.png", SPRITE_SCALING)
             self.player_sprite.center_x = SCREEN_WIDTH / 2
             self.player_sprite.center_y = SCREEN_HEIGHT / 2
@@ -114,12 +114,13 @@ def animate_plane():
 
             # Draw all the sprites.
             self.player_list.draw()
+            arcade.draw_line(
+                0, 300, SCREEN_WIDTH, 300, arcade.color.BLACK, 2,
+            )
 
         def on_update(self, delta_time):
             """ Movement and game logic """
-
-            # Call update on all sprites (The sprites don't do much in this
-            # example though.)
+            # Call update on all sprites
             self.player_list.update()
 
     window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
@@ -127,4 +128,5 @@ def animate_plane():
     arcade.run()
 
 
-animate_plane()
+if __name__ == "__main__":
+    animate_plane()
