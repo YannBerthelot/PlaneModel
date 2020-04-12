@@ -19,32 +19,34 @@ class FlightModel:
         CONSTANTS
         Constants used throughout the model
         """
-        self.g = 9.81  # gravity vector
-        self.m = 73500  # mass
-        self.RHO = 1.225  # air density
-        self.S_front = 12.6  # Frontal surface
-        self.S_wings = 122.6  # Wings surface
+        self.g = 9.81  # gravity vector in m.s-2
+        self.m = 73500  # mass in kg
+        self.RHO = 1.225  # air density in kg.m-3
+        self.S_front = 12.6  # Frontal surface in m2
+        self.S_wings = 122.6  # Wings surface in m2
         self.C_x_min = 0.08  # Drag coefficient
         self.C_z_max = 0.9  # Lift coefficient
-        self.THRUST_MAX = 120000 * 2  # Max thrust
-        self.DELTA_T = 0.1  # Timestep size
-        self.V_1 = 77  # V1 for takeoff
-        self.V_1_ok = False  # H    as V1 been reached
-        self.MAX_SPEED = 250
-        self.flaps_factor = 1.5
-        self.SFC = 17.5 / 1000
-        self.fuel_mass = 23860 / 1.25
+        self.THRUST_MAX = 120000 * 2  # Max thrust in Newtons
+        self.DELTA_T = 0.1  # Timestep size in seconds
+        self.V_R = 77  # VR for takeoff (R is for Rotate)
+        self.V_R_ok = False  # Has VR been reached
+        self.MAX_SPEED = 250  # Max speed bearable by the plane
+        self.flaps_factor = 1.5  # Lift improvement due to flaps
+        self.SFC = 17.5 / 1000  # Specific Fuel Consumption in kg/(N.s)
+        self.fuel_mass = 23860 / 1.25  # Fuel mass at take-off in kg
+        self.M_critic = 0.78  # Critical Mach Number
 
         """
         DYNAMICS
-        Acceleration, speed, position and theta.
+        Acceleration, speed, position, theta and misc variable that will evolve at every timestep.
         """
         self.A = [(0), (0)]  # Acceleration vector
         self.V = [(0), (0)]  # Speed Vector
         self.Pos = [(0), (0)]  # Position vector
         self.theta = 0  # Angle between the plane's axis and the ground
-        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
-        self.thrust_modified = 0
+        self.thrust_modified = 0  # Thrust after the influence of altitude factor
+        self.M = 0  # Mach number
+
         """
         LISTS FOR PLOT:
         Lists initialization to store values in order to monitor them through graphs
@@ -57,14 +59,14 @@ class FlightModel:
         self.V_vec = [[], []]  # Store Speed values
         self.Pos_vec = [[], []]  # Store position values
         self.alt_factor_vec = []  # Store altitude factor values
-        self.C_vec = [[], []]
-        self.S_vec = [[], []]
-        self.alpha_vec = []
+        self.C_vec = [[], []]  # Store the coefficient values
+        self.S_vec = [[], []]  # Store the reference surface values
         # Store angle alpha values (angle between the speed vector and the plane)
-        self.gamma_vec = []
+        self.alpha_vec = []
         # Store angla gamma values (angle bweteen the ground and speed vector)
-        self.theta_vec = []
+        self.gamma_vec = []
         # Store angle theta values (angle between the plane's axis and the ground)
+        self.theta_vec = []
 
         """
         KPIS:
@@ -80,21 +82,36 @@ class FlightModel:
         ACTIONS:
         Action vec for RL stocking thrust and theta values
         """
-        self.timestep = 0
-        self.timestep_max = 1000
+        self.timestep = 0  # init timestep
+        self.timestep_max = 1000  # Max number of timestep per episode
+        # Represent the actions : couples of thrust and theta.
         self.action_vec = [
             [thrust, theta] for thrust in range(5, 11) for theta in range(0, 3)
         ]
 
+        """
+        OBSERVATIONS
+        States vec for RL stocking position and velocity
+        """
+        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+
     def reset(self):
+        """
+        To be deleted
+        """
         self.A = [(0), (0)]  # Acceleration vector
         self.V = [(0), (0)]  # Speed Vector
         self.Pos = [(0), (0)]  # Position vector
         self.theta = 0  # Angle between the plane's axis and the ground
+        # Observation of the env state : Pos and Velocity
         self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
         self.timestep = 0
 
     def fuel_consumption(self):
+        """
+        Compute the fuel mass variation at each timestep based on the thrust.
+        Update the remaining fuell mass and plane mass accordingly
+        """
         fuel_variation = self.SFC * self.DELTA_T * self.thrust_modified / 1000
         self.fuel_mass += -fuel_variation
         self.m += -fuel_variation
@@ -111,29 +128,56 @@ class FlightModel:
         # print("S", S, "C", C, "V", V)
         return 0.5 * self.RHO * self.altitude_factor() * S * C * np.power(V, 2)
 
+    def Mach_Cx(self, Cx):
+        """
+        Compute the drag coefficient based on Mach Number and drag coefficient at M =0
+        """
+        if self.M < self.M_critic:
+            return Cx / math.sqrt(1 - (self.M ** 2))
+        else:
+            return Cx * 10 * (self.M - self.M_critic) + Cx / math.sqrt(
+                1 - (self.M_critic ** 2)
+            )
+
+    def Mach_Cz(self, Cz):
+        """
+        Compute the lift coefficient based on Mach Number and lift coefficient at M =0
+        """
+        M_d = self.M_critic + (1 - self.M_critic) / 4
+        if self.M <= self.M_critic:
+            return Cz
+        elif self.M <= M_d:
+            return Cz + 0.1 * (self.M - self.M_critic)
+        else:
+            maximal = Cz + 0.1 * (M_d - self.M_critic)
+            return maximal - 0.8 * (self.M - M_d)
+
     def C_x(self, alpha):
         """
-        Compute the drag coefficient depending on alpha (the higher alpha the higher the drag)
+        Compute the drag coefficient at M = 0 depending on alpha (the higher alpha the higher the drag)
         """
         alpha = alpha + np.radians(0)
-        return (np.degrees(alpha) * 0.02) ** 2 + self.C_x_min
+        C_x = (np.degrees(alpha) * 0.02) ** 2 + self.C_x_min
+        return self.Mach_Cx(C_x)
 
     def C_z(self, alpha):
         """
-        Compute the lift coefficient depending on alpha (the higher the alpha, the higher the lift until stall)
+        Compute the lift coefficient at M=0 depending on alpha (the higher the alpha, the higher the lift until stall)
         """
-        alpha = alpha + np.radians(0)
+        alpha = alpha + np.radians(5)
         # return self.C_z_max
         sign = np.sign(np.degrees(alpha))
         if abs(np.degrees(alpha)) < 15:
             # Quadratic evolution  from C_z = 0 for 0 degrees and reaching a max value of C_z = 1.5 for 15 degrees
-            return sign * abs((np.degrees(alpha) / 15) * self.C_z_max)
+            C_z = sign * abs((np.degrees(alpha) / 15) * self.C_z_max)
         elif abs(np.degrees(alpha)) < 20:
             # Quadratic evolution  from C_z = 1.5 for 15 degrees to C_2 ~ 1.2 for 20 degrees.
-            return sign * abs(1 - ((abs(np.degrees(alpha)) - 15) / 15) * self.C_z_max)
+            C_z = sign * abs((1 - ((abs(np.degrees(alpha)) - 15) / 15)) * self.C_z_max)
         else:
             ##if alpha > 20 degrees : Stall => C_z = 0
-            return 0
+            C_z = 0
+        C_z = self.Mach_Cz(C_z)
+        return C_z
 
     def gamma(self):
         """
@@ -276,6 +320,7 @@ class FlightModel:
         # Update acceleration, speed and position
         self.A = self.compute_acceleration(thrust)
         self.V = [self.V[i] + self.A[i] * self.DELTA_T for i in range(2)]
+        self.M = self.V[0] / 343
         # self.V[0] = 240
         self.Pos = [self.Pos[i] + self.V[i] * self.DELTA_T for i in range(2)]
         # if self.V[0] > self.MAX_SPEED:
@@ -301,7 +346,14 @@ class FlightModel:
         print("max x", max(self.Pos_vec[0]))
 
     def compute_episode(
-        self, thrust, theta, number_timesteps, theta_takeoff, graphs=False, kpis=False
+        self,
+        thrust,
+        theta,
+        thrust_cruise,
+        number_timesteps,
+        theta_takeoff,
+        graphs=False,
+        kpis=False,
     ):
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -314,11 +366,15 @@ class FlightModel:
             # To be used for autopilot, removed while debugging
             self.fuel_consumption()
             # Apply the atitude factor to the thrust
+            if self.Pos[1] > 1000:
+                thrust = thrust_cruise
+            if self.fuel_mass <= 0:
+                thrust = 0
             self.thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
 
             # Compute the dynamics for the episode
             self.compute_dyna(self.thrust_modified)
-            if self.V[0] > self.V_1:
+            if self.V[0] > self.V_R:
                 self.theta = np.radians(theta_takeoff)
             if self.Pos[1] > 122:
                 self.flaps_factor = 1
@@ -389,8 +445,7 @@ class FlightModel:
     #     return reward
     def altitude_factor(self):
         """
-        WIP
-        Compute the reducting in reactor's power with rising altitude. Not ready yet
+        Compute the reducting in reactor's power with rising altitude.
         """
         alt = self.Pos[1]
         a = 1 / (math.exp(alt / 15000))
@@ -455,7 +510,7 @@ class FlightModel:
         # plt.show()
 
         # Z-axis
-        # Force_vec_z = [element * self.m for element in self.A_vec[1]]
+        Force_vec_z = [element * self.m for element in self.A_vec[1]]
         # y = pd.Series(self.drag_vec[1])
         # x = pd.Series(self.V_vec[1])
         # plt.scatter(x, y)
@@ -472,16 +527,17 @@ class FlightModel:
         plt.legend()
         plt.show()
 
-        # ax = pd.Series(self.lift_vec[1]).plot(label="Lift z")
-        # pd.Series(self.P_vec).plot(label="P", ax=ax)
-        # pd.Series(self.T_vec[1]).plot(label="Thrust z", ax=ax)
-        # pd.Series(self.drag_vec[1]).plot(label="Drag z", ax=ax)
-        # pd.Series(Force_vec_z).plot(label="Total z", ax=ax)
-        # plt.title("Z-axis")
-        # plt.autoscale()
-        # plt.legend()
-        # plt.show()
-        # # X-axis
+        ax = pd.Series(self.lift_vec[1]).plot(label="Lift z")
+        pd.Series(self.P_vec).plot(label="P", ax=ax)
+        pd.Series(self.T_vec[1]).plot(label="Thrust z", ax=ax)
+        pd.Series(self.drag_vec[1]).plot(label="Drag z", ax=ax)
+        pd.Series(Force_vec_z).plot(label="Total z", ax=ax)
+        plt.title("Z-axis")
+        plt.autoscale()
+        plt.legend()
+        plt.show()
+
+        # X-axis
         Force_vec_x = [element * self.m for element in self.A_vec[0]]
         ax = pd.Series(self.T_vec[0]).plot(label="Thrust x")
         pd.Series(self.drag_vec[0]).plot(label="Drag x", ax=ax)
@@ -536,22 +592,21 @@ if __name__ == "__main__":
     # Create Model
 
     # Run simulation over number of episodes, with thrust and theta
-    def altitude_factor(alt):
-        """
-        WIP
-        Compute the reducting in reactor's power with rising altitude. Not ready yet
-        """
-        a = 1 / (math.exp(alt / 15000))
-        return max(0, min(1, a ** (0.7)))
-
     def max_speed_study():
         thrust = 1  # 100% power
         theta = 0
-        number_timesteps = 1000
-        theta_takeoff = 10
+        number_timesteps = 100000
+        theta_takeoff = -1
+        thrust_cruise = 0.7
         model = FlightModel()
         model.compute_episode(
-            thrust, theta, number_timesteps, theta_takeoff, graphs=True, kpis=True,
+            thrust,
+            theta,
+            thrust_cruise,
+            number_timesteps,
+            theta_takeoff,
+            graphs=True,
+            kpis=True,
         )
 
         print(max(model.V_vec[0]))
@@ -561,10 +616,11 @@ if __name__ == "__main__":
     def TO_angle_vs_TO_dist_study():
         thrust = 1  # 100% power
         theta = 0
-        number_timesteps = 1000
+        number_timesteps = 100
         dic_results = {}
         dic_results_2 = {}
         theta_takeoff = 5
+        thrust_cruise = 0.6
         TO_length = 5000
         for theta_takeoff in range(-5, 17):
             dic_x = {}
@@ -574,6 +630,7 @@ if __name__ == "__main__":
                 model.compute_episode(
                     thrust,
                     theta,
+                    thrust_cruise,
                     number_timesteps,
                     theta_takeoff,
                     graphs=False,
