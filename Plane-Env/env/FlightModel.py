@@ -1,11 +1,12 @@
-import numpy as np
+import os
 import math
-from math import cos, sin
-import matplotlib.pyplot as plt
-import pandas as pd
+from math import cos, sin, ceil, floor
+import numpy as np
 from numpy import arcsin
 from numpy.linalg import norm
-from math import ceil, floor
+import matplotlib.pyplot as plt
+import pandas as pd
+from graph_utils import plot_duo, plot_multiple, plot_xy
 
 # from .AnimatePlane import animate_plane
 # from ..utils import write_to_txt
@@ -29,12 +30,18 @@ class FlightModel:
         self.THRUST_MAX = 120000 * 2  # Max thrust in Newtons
         self.DELTA_T = 0.1  # Timestep size in seconds
         self.V_R = 77  # VR for takeoff (R is for Rotate)
-        self.V_R_ok = False  # Has VR been reached
         self.MAX_SPEED = 250  # Max speed bearable by the plane
         self.flaps_factor = 1.5  # Lift improvement due to flaps
         self.SFC = 17.5 / 1000  # Specific Fuel Consumption in kg/(N.s)
         self.fuel_mass = 23860 / 1.25  # Fuel mass at take-off in kg
         self.M_critic = 0.78  # Critical Mach Number
+        self.critical_energy = 1323000 # Maximal acceptable kinetic energy at landing in Joules
+        
+        '''
+        VARIABLES
+        '''
+        self.V_R_ok = False  # Has VR been reached
+        self.crashed = False
 
         """
         DYNAMICS
@@ -61,6 +68,8 @@ class FlightModel:
         self.alt_factor_vec = []  # Store altitude factor values
         self.C_vec = [[], []]  # Store the coefficient values
         self.S_vec = [[], []]  # Store the reference surface values
+        self.Fuel_vec = []
+        self.thrust_vec = []
         # Store angle alpha values (angle between the speed vector and the plane)
         self.alpha_vec = []
         # Store angla gamma values (angle bweteen the ground and speed vector)
@@ -95,17 +104,17 @@ class FlightModel:
         """
         self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
 
-    def reset(self):
-        """
-        To be deleted
-        """
-        self.A = [(0), (0)]  # Acceleration vector
-        self.V = [(0), (0)]  # Speed Vector
-        self.Pos = [(0), (0)]  # Position vector
-        self.theta = 0  # Angle between the plane's axis and the ground
-        # Observation of the env state : Pos and Velocity
-        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
-        self.timestep = 0
+    # def reset(self):
+    #     """
+    #     To be deleted
+    #     """
+    #     self.A = [(0), (0)]  # Acceleration vector
+    #     self.V = [(0), (0)]  # Speed Vector
+    #     self.Pos = [(0), (0)]  # Position vector
+    #     self.theta = 0  # Angle between the plane's axis and the ground
+    #     # Observation of the env state : Pos and Velocity
+    #     self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+    #     self.timestep = 0
 
     def fuel_consumption(self):
         """
@@ -115,6 +124,7 @@ class FlightModel:
         fuel_variation = self.SFC * self.DELTA_T * self.thrust_modified / 1000
         self.fuel_mass += -fuel_variation
         self.m += -fuel_variation
+        self.Fuel_vec.append(self.fuel_mass)
 
     def drag(self, S, V, C):
         """
@@ -286,7 +296,9 @@ class FlightModel:
         # Check if we are on the ground, if so prevent from going underground by setting  vertical position and vertical speed to 0.
         if self.check_colisions() and F_z <= 0:
             F_z = 0
-            # energy = 0.5 * self.m * V ** 2
+            energy = 0.5 * self.m * self.V[1] ** 2
+            if energy > self.critical_energy:
+                self.crashed = True
             self.V[1] = 0
             self.Pos[1] = 0
 
@@ -352,8 +364,10 @@ class FlightModel:
         thrust_cruise,
         number_timesteps,
         theta_takeoff,
+        theta_cruise,
         graphs=False,
         kpis=False,
+        save_figs=False,
     ):
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -366,16 +380,19 @@ class FlightModel:
             # To be used for autopilot, removed while debugging
             self.fuel_consumption()
             # Apply the atitude factor to the thrust
-            if self.Pos[1] > 1000:
+            if self.Pos[1] > 3000:
                 thrust = thrust_cruise
+                self.theta = np.radians(theta_cruise)
+            elif self.V[0] > self.V_R:
+                self.theta = np.radians(theta_takeoff)
+
             if self.fuel_mass <= 0:
                 thrust = 0
             self.thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
-
+            self.thrust_vec.append(thrust * self.THRUST_MAX)
             # Compute the dynamics for the episode
             self.compute_dyna(self.thrust_modified)
-            if self.V[0] > self.V_R:
-                self.theta = np.radians(theta_takeoff)
+                
             if self.Pos[1] > 122:
                 self.flaps_factor = 1
             else:
@@ -387,7 +404,7 @@ class FlightModel:
 
         # Plot interesting graphs after all episodes have ended.
         if graphs:
-            self.plot_graphs()
+            self.plot_graphs(save_figs)
         self.max_alt = max(self.Pos_vec[1])
         self.max_A = [max(self.A_vec[0]), max(self.A_vec[1])]
         self.min_A = [min(self.A_vec[0]), min(self.A_vec[1])]
@@ -452,7 +469,7 @@ class FlightModel:
         self.alt_factor_vec.append(a ** 0.7)
         return max(0, min(1, a ** (0.7)))
 
-    def plot_graphs(self):
+    def plot_graphs(self,save_figs=False):
         """
         Plot interesting graphs over timesteps :
         -Vertical drag against Vertical speed
@@ -462,127 +479,111 @@ class FlightModel:
         -Acceleration (x and z)
         -Speed (x and z)
         -Position (x and z)
-        -(WIP) Altitude factor vs Altitude
+        -Altitude factor vs Altitude
         """
 
-        # y = pd.Series(self.A_vec[1])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("A_z vs alpha")
-        # plt.legend()
-        # plt.show()
+        Series = [self.Fuel_vec]
+        labels = ["Remaining fuel (kg)"]
+        xlabel = "time (s)"
+        ylabel = "Remaining fuel (kg)"
+        title = "Remaining fuel vs time"
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.V_vec[1])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("V_z vs alpha")
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.C_vec[0]]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Drag coefficient"
+        title = "Drag coefficient vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.C_vec[1])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("C_z vs alpha")
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.C_vec[1]]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Lift coefficient"
+        title = "Lift coefficient vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.C_vec[0])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("C_x vs alpha")
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.C_vec[0]]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Drag coefficient"
+        title = "Drag coefficient vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.S_vec[1])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("S_z vs alpha")
-        # plt.xlim((0, 120))
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.S_vec[1]]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Vertical reference surface (m2)"
+        title = "Vertical reference surface vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.S_vec[0])
-        # x = pd.Series(self.alpha_vec)
-        # plt.scatter(x, y)
-        # plt.title("S_x vs alpha")
-        # plt.xlim((0, 120))
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.S_vec[0]]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Horizontal reference surface (m2)"
+        title = "Horizontal reference surface vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        # Z-axis
+        Series = [self.V_vec[1], self.drag_vec[1]]
+        xlabel = "Vertical velocity (m/s)"
+        ylabel = "Vertical drag intensity (N)"
+        title = "Vertical velocity vs Vertical drag intensity"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+
+        #Angles
         Force_vec_z = [element * self.m for element in self.A_vec[1]]
-        # y = pd.Series(self.drag_vec[1])
-        # x = pd.Series(self.V_vec[1])
-        # plt.scatter(x, y)
-        # plt.title("Drag z vs Vz")
-        # plt.autoscale()
-        # plt.legend()
-        # plt.show()
+        Series = [self.alpha_vec, self.gamma_vec, self.theta_vec]
+        labels = ["Alpha", "Gamma", "Theta"]
+        xlabel = "time (s)"
+        ylabel = "Angle values (°)"
+        title = "Angles vs time"
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        ax = pd.Series(self.alpha_vec).plot(label="Alpha")
-        pd.Series(self.gamma_vec).plot(label="Gamma", ax=ax)
-        pd.Series(self.theta_vec).plot(label="Theta", ax=ax)
-        plt.title("Angles")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
-
-        ax = pd.Series(self.lift_vec[1]).plot(label="Lift z")
-        pd.Series(self.P_vec).plot(label="P", ax=ax)
-        pd.Series(self.T_vec[1]).plot(label="Thrust z", ax=ax)
-        pd.Series(self.drag_vec[1]).plot(label="Drag z", ax=ax)
-        pd.Series(Force_vec_z).plot(label="Total z", ax=ax)
-        plt.title("Z-axis")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
+        #Z-axis
+        Force_vec_z = [element * self.m for element in self.A_vec[1]]
+        Series = [self.lift_vec[1],self.P_vec, self.T_vec[1], self.drag_vec[1], Force_vec_z]
+        labels = ["Lift z", "P", "Thrust z", "Drag z", "Total z"]
+        xlabel = "time (s)"
+        ylabel = "Force intensity (N)"
+        title = "Vertical forces vs time"
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
         # X-axis
         Force_vec_x = [element * self.m for element in self.A_vec[0]]
-        ax = pd.Series(self.T_vec[0]).plot(label="Thrust x")
-        pd.Series(self.drag_vec[0]).plot(label="Drag x", ax=ax)
-        pd.Series(self.lift_vec[0]).plot(label="Lift x", ax=ax)
-        pd.Series(Force_vec_x).plot(label="Total x", ax=ax)
-        plt.title("Xaxis")
-        plt.autoscale()
-        plt.legend()
-        plt.show()
+        Series = [self.T_vec[0],self.drag_vec[0],self.lift_vec[0],Force_vec_x]
+        labels = ["Thrust x", "Drag x","Lift x","Total x"]
+        xlabel = "time (s)"
+        ylabel = "Force intensity (N)"
+        title = "Horizontal forces vs time"
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        
+        Series = [self.A_vec[0],self.A_vec[1]]
+        labels = ["Horizontal acceleration", "Vertical acceleration"]
+        xlabel = "time (s)"
+        ylabel = "Acceleration (m.s-2)"
+        title = "Acceleration vs time"
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        color = "tab:red"
+        Series = [self.V_vec[0],self.V_vec[1]]
+        labels = ["Horizontal velocity", "Vertical velocity"]
+        xlabel = "time (s)"
+        ylabel = "Velociy (m.s-1)"
+        title = "Velocity vs time"
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        ax = pd.Series(self.A_vec[0]).plot(label="A_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.A_vec[1]).plot(ax=ax2, label="A_y", color=color)
-        plt.title("Acceleration")
-        plt.legend()
-        plt.show()
-
-        ax = pd.Series(self.V_vec[0]).plot(label="V_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.V_vec[1]).plot(ax=ax2, label="V_y", color=color)
-        plt.title("Speed")
-        plt.legend()
-        plt.show()
-
-        ax = pd.Series(self.Pos_vec[0]).plot(label="Pos_x")
-        ax.set_ylabel("X")
-        ax2 = ax.twinx()
-        ax2.set_ylabel("Y", color=color)
-        pd.Series(self.Pos_vec[1]).plot(ax=ax2, label="Pos_y", color=color)
-        plt.title("Position")
-        plt.legend()
-        plt.show()
+        Series = [self.Pos_vec[0],self.Pos_vec[1]]
+        labels = ["Horizontal position", "Vertical position"]
+        xlabel = "time (s)"
+        ylabel = "Distance from origin (m)"
+        title = "Position vs time"
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
         # y = pd.Series(self.alt_factor_vec)
         # x = pd.Series(self.Pos_vec[1])
         # plt.scatter(x, y)
-        # plt.title("Altitude vs Alt factor")
+        # title = "Altitude vs Alt factor"
+        # plt.title(title)
         # plt.legend()
-        # plt.show()
+        # if not(save_figs):
+        #     plt.show()
+        # else:
+        #     fname =os.path.join('Graphs',title)
+        #     plt.savefig(fname)
 
     def _animate_plane(self):
         animate_plane(self.Pos_vec, self.theta_vec)
@@ -595,32 +596,42 @@ if __name__ == "__main__":
     def max_speed_study():
         thrust = 1  # 100% power
         theta = 0
-        number_timesteps = 100000
-        theta_takeoff = -1
-        thrust_cruise = 0.7
-        model = FlightModel()
-        model.compute_episode(
-            thrust,
-            theta,
-            thrust_cruise,
-            number_timesteps,
-            theta_takeoff,
-            graphs=True,
-            kpis=True,
-        )
-
-        print(max(model.V_vec[0]))
-
-    max_speed_study()
+        number_timesteps = 500
+        theta_takeoff = 10
+        theta_cruise = 0
+        range_vec = []
+        for i in range(3, 4):
+            thrust_cruise = i/10
+            model = FlightModel()
+            model.compute_episode(
+                thrust,
+                theta,
+                thrust_cruise,
+                number_timesteps,
+                theta_takeoff,
+                theta_cruise,
+                graphs=True,
+                kpis=True,
+                save_figs=True,
+            )
+            range_vec.append(model.Pos[0])
+        #print(max(model.V_vec[0]))
+        title = "Range against cruise thrust"
+        pd.Series(range_vec).plot()
+        plt.title(title)
+        #plt.show()
+        plt.savefig(title)
+    #max_speed_study()
 
     def TO_angle_vs_TO_dist_study():
         thrust = 1  # 100% power
         theta = 0
-        number_timesteps = 100
+        number_timesteps = 1000
         dic_results = {}
         dic_results_2 = {}
         theta_takeoff = 5
         thrust_cruise = 0.6
+        theta_cruise = 0
         TO_length = 5000
         for theta_takeoff in range(-5, 17):
             dic_x = {}
@@ -633,8 +644,10 @@ if __name__ == "__main__":
                     thrust_cruise,
                     number_timesteps,
                     theta_takeoff,
+                    theta_cruise,
                     graphs=False,
-                    kpis=False,
+                    kpis=True,
+                    save_figs=False
                 )
                 dic_x[thrust] = int(max(model.Pos_vec[0]))
             if min(dic_x.values()) < TO_length:
@@ -648,7 +661,7 @@ if __name__ == "__main__":
         plt.ylabel("Take-off distance")
         plt.show()
 
-    # TO_angle_vs_TO_dist_study()
+    TO_angle_vs_TO_dist_study()
     # write_to_txt(environment)
     # animate_plane()
 
