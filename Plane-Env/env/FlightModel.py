@@ -25,7 +25,7 @@ class FlightModel:
         self.RHO = 1.225  # air density in kg.m-3
         self.S_front = 12.6  # Frontal surface in m2
         self.S_wings = 122.6  # Wings surface in m2
-        self.C_x_min = 0.08  # Drag coefficient
+        self.C_x_min = 0.095  # Drag coefficient
         self.C_z_max = 0.9  # Lift coefficient
         self.THRUST_MAX = 120000 * 2  # Max thrust in Newtons
         self.DELTA_T = 0.1  # Timestep size in seconds
@@ -145,7 +145,7 @@ class FlightModel:
         if self.M < self.M_critic:
             return Cx / math.sqrt(1 - (self.M ** 2))
         else:
-            return Cx * 10 * (self.M - self.M_critic) + Cx / math.sqrt(
+            return Cx * 15 * (self.M - self.M_critic) + Cx / math.sqrt(
                 1 - (self.M_critic ** 2)
             )
 
@@ -376,19 +376,30 @@ class FlightModel:
         # switch theta from degrees to radians and store it in the class
         self.theta = np.radians(theta)
         # Change alpha from rad to deg
+        counter_cruise = 0
+        counter_to = 0
+        thrust_cruise_variation = thrust_cruise-thrust
+        theta_cruise_variation = np.radians(theta_cruise-theta_takeoff)
+        theta_takeoff_variation = theta_takeoff-self.theta
         for i in range(number_timesteps):
             # To be used for autopilot, removed while debugging
             self.fuel_consumption()
             # Apply the atitude factor to the thrust
             if self.Pos[1] > 3000:
-                thrust = thrust_cruise
-                self.theta = np.radians(theta_cruise)
+                if counter_cruise < 600:
+                    counter_cruise += 1
+                    thrust += thrust_cruise_variation/600
+                    self.theta += theta_cruise_variation/600
             elif self.V[0] > self.V_R:
+                if counter_to < 100:
+                    counter_to += 1
+                    self.theta += theta_takeoff_variation/100
                 self.theta = np.radians(theta_takeoff)
 
             if self.fuel_mass <= 0:
                 thrust = 0
             self.thrust_modified = thrust * self.altitude_factor() * self.THRUST_MAX
+            self.alt_factor_vec.append(self.altitude_factor())
             self.thrust_vec.append(thrust * self.THRUST_MAX)
             # Compute the dynamics for the episode
             self.compute_dyna(self.thrust_modified)
@@ -396,9 +407,9 @@ class FlightModel:
             if self.Pos[1] > 122:
                 self.flaps_factor = 1
             else:
-                self.flaps_factor = 1.5
+                self.flaps_factor = 1.7
 
-            # if self.Pos[1] > 15:
+            # if self.Pos[1] > 25:
             #     break
             # print("step:", i, " Pos ", self.Pos)
 
@@ -430,6 +441,7 @@ class FlightModel:
         # Apply the atitude factor to the thrust
 
         thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX
+        
 
         # Compute the dynamics for the episode
         self.compute_dyna(thrust_modified)
@@ -465,8 +477,8 @@ class FlightModel:
         Compute the reducting in reactor's power with rising altitude.
         """
         alt = self.Pos[1]
-        a = 1 / (math.exp(alt / 15000))
-        self.alt_factor_vec.append(a ** 0.7)
+        a = 1 / (math.exp(alt / 7500))
+        
         return max(0, min(1, a ** (0.7)))
 
     def plot_graphs(self,save_figs=False):
@@ -573,17 +585,18 @@ class FlightModel:
         title = "Position vs time"
         plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        # y = pd.Series(self.alt_factor_vec)
-        # x = pd.Series(self.Pos_vec[1])
-        # plt.scatter(x, y)
-        # title = "Altitude vs Alt factor"
-        # plt.title(title)
-        # plt.legend()
-        # if not(save_figs):
-        #     plt.show()
-        # else:
-        #     fname =os.path.join('Graphs',title)
-        #     plt.savefig(fname)
+        Series = [self.Pos_vec[1], self.alt_factor_vec]
+        xlabel = "Altitude (m)"
+        ylabel = "Altitude factor"
+        title = "Altitude factor vs altitude"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+
+        Series = [self.C_vec[0],self.C_vec[1]]
+        labels = ["Drag coefficient", "Lift coefficient"]
+        xlabel = "time (s)"
+        ylabel = "Coefficient (no unit)"
+        title = "Drag and lift coefficients vs time"
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
     def _animate_plane(self):
         animate_plane(self.Pos_vec, self.theta_vec)
@@ -596,12 +609,12 @@ if __name__ == "__main__":
     def max_speed_study():
         thrust = 1  # 100% power
         theta = 0
-        number_timesteps = 500
+        number_timesteps = 50000
         theta_takeoff = 10
-        theta_cruise = 0
+        theta_cruise = 2.5
         range_vec = []
-        for i in range(3, 4):
-            thrust_cruise = i/10
+        for i in range(10, 11):
+            thrust_cruise = 0.65
             model = FlightModel()
             model.compute_episode(
                 thrust,
@@ -615,13 +628,8 @@ if __name__ == "__main__":
                 save_figs=True,
             )
             range_vec.append(model.Pos[0])
-        #print(max(model.V_vec[0]))
-        title = "Range against cruise thrust"
-        pd.Series(range_vec).plot()
-        plt.title(title)
-        #plt.show()
-        plt.savefig(title)
-    #max_speed_study()
+        print(model.V[0])
+    max_speed_study()
 
     def TO_angle_vs_TO_dist_study():
         thrust = 1  # 100% power
@@ -630,10 +638,10 @@ if __name__ == "__main__":
         dic_results = {}
         dic_results_2 = {}
         theta_takeoff = 5
-        thrust_cruise = 0.6
-        theta_cruise = 0
+        thrust_cruise = 1
+        theta_cruise = 3
         TO_length = 5000
-        for theta_takeoff in range(-5, 17):
+        for theta_takeoff in range(0, 16):
             dic_x = {}
             for thrust_val in range(10, 11):
                 model = FlightModel()
@@ -647,21 +655,24 @@ if __name__ == "__main__":
                     theta_cruise,
                     graphs=False,
                     kpis=True,
-                    save_figs=False
+                    save_figs=True
                 )
                 dic_x[thrust] = int(max(model.Pos_vec[0]))
             if min(dic_x.values()) < TO_length:
                 dic_results[theta] = dic_x
                 dic_results_2[theta_takeoff] = min(dic_x.values())
         print(list(dic_results_2.values()))
-        # pd.Series(list(dic_results_2.values())).plot(xticks=list(dic_results_2.keys()))
-        plt.plot(list(dic_results_2.keys()), list(dic_results_2.values()), "-o")
-        plt.title("Take-off distance against take-off angle")
-        plt.xlabel("Take-off angle")
-        plt.ylabel("Take-off distance")
-        plt.show()
+        distances = list(dic_results_2.values())
+        angle_values = list(dic_results_2.keys())
+        angle_values = [angle-0 for angle in angle_values]
+        Series = [angle_values, distances ]
+        xlabel = "Take-off pitch (°)"
+        ylabel = "Take-off distance (m)"
+        title = "Take-off distance vs take-off pitch"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=True)
 
-    TO_angle_vs_TO_dist_study()
+
+    #TO_angle_vs_TO_dist_study()
     # write_to_txt(environment)
     # animate_plane()
 
