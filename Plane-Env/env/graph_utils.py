@@ -17,7 +17,7 @@ def plot_xy(Series, xlabel, ylabel, title, save_fig=False):
         plt.show()
 
 
-def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False):
+def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False, path=None):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
@@ -25,7 +25,12 @@ def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False):
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     locs, xticks_labels = plt.xticks()
-    xticks_labels = [int(loc) / 10 for loc in locs]
+    if len(Series[0]) < 10000:
+        xticks_labels = [int(int(loc) / 10) for loc in locs]
+    else:
+        xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
+        ax.set_xlabel(xlabel[:-3] + "(h)")
+
     plt.xticks(locs, xticks_labels)
     ax2 = ax.twinx()
     ax2.plot(Series[1].index, Series[1], "r", label=labels[1])
@@ -43,12 +48,15 @@ def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False):
 
     ax.set_title(title)
     if save_fig:
-        plt.savefig(os.path.join("Graphs", title))
+        if path:
+            plt.savefig(os.path.join(path, "Graphs", title))
+        else:
+            plt.savefig(os.path.join("Graphs", title))
     else:
         plt.show()
 
 
-def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False):
+def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False, path=None):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
@@ -57,9 +65,13 @@ def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False):
         ax.plot(s.index, s, label=labels[i])
         ax.set_ylabel(ylabel)
         ax.set_xlabel(xlabel)
-    locs, labels = plt.xticks()
-    labels = [int(loc) / 10 for loc in locs]
-    plt.xticks(locs, labels)
+    locs, xticks_labels = plt.xticks()
+    if len(Series[0]) < 10000:
+        xticks_labels = [int(int(loc) / 10) for loc in locs]
+    else:
+        xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
+        ax.set_xlabel(xlabel[:-3] + "(h)")
+    plt.xticks(locs, xticks_labels)
     lines = ax.get_lines()
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
@@ -72,6 +84,9 @@ def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False):
         )
     ax.set_title(title)
     if save_fig:
-        plt.savefig(os.path.join("Graphs", title))
+        if path:
+            plt.savefig(os.path.join(path, "Graphs", title))
+        else:
+            plt.savefig(os.path.join("Graphs", title))
     else:
         plt.show()
