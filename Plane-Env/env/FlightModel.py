@@ -1,12 +1,9 @@
-import os
 import math
 from math import cos, sin, ceil, floor
 import numpy as np
 from numpy import arcsin
 from numpy.linalg import norm
-import matplotlib.pyplot as plt
-import pandas as pd
-from graph_utils import plot_duo, plot_multiple, plot_xy
+from .graph_utils import plot_duo, plot_multiple, plot_xy
 
 # from .AnimatePlane import animate_plane
 # from ..utils import write_to_txt
@@ -95,7 +92,7 @@ class FlightModel:
         self.timestep_max = 1000  # Max number of timestep per episode
         # Represent the actions : couples of thrust and theta.
         self.action_vec = [
-            [thrust, theta] for thrust in range(5, 11) for theta in range(0, 3)
+            [thrust, theta] for thrust in range(5, 11) for theta in range(0, 15)
         ]
 
         """
@@ -103,18 +100,6 @@ class FlightModel:
         States vec for RL stocking position and velocity
         """
         self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
-
-    # def reset(self):
-    #     """
-    #     To be deleted
-    #     """
-    #     self.A = [(0), (0)]  # Acceleration vector
-    #     self.V = [(0), (0)]  # Speed Vector
-    #     self.Pos = [(0), (0)]  # Position vector
-    #     self.theta = 0  # Angle between the plane's axis and the ground
-    #     # Observation of the env state : Pos and Velocity
-    #     self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
-    #     self.timestep = 0
 
     def fuel_consumption(self):
         """
@@ -135,7 +120,6 @@ class FlightModel:
         RHO : air density
         F = 1/2 * S * C * V^2
         """
-        # print("S", S, "C", C, "V", V)
         return 0.5 * self.RHO * self.altitude_factor() * S * C * np.power(V, 2)
 
     def Mach_Cx(self, Cx):
@@ -266,9 +250,13 @@ class FlightModel:
         S_z = self.S_z(alpha)
         C_x = self.C_x(alpha)
         C_z = self.C_z(alpha)
+        
+        if self.Pos[1] > 122:
+            self.flaps_factor = 1
+        else:
+            self.flaps_factor = 1.7
 
         drag = self.drag(S_x, V, C_x) * self.flaps_factor
-        # print("Cx", C_x, "C_z", C_z, "S_x", S_x, "S_z", S_z, "Alpha", np.degrees(alpha))
 
         # Compute lift magnitude
         lift = self.drag(S_z, V, C_z) * self.flaps_factor
@@ -281,7 +269,6 @@ class FlightModel:
         thrust_z = sin(self.theta) * thrust
         # Compute the sum
         F_z = lift_z + drag_z + thrust_z - P
-        # print("F_Z", F_z, "dragz", drag_z, "thrust_z", thrust_z, "lift_z", lift_z)
 
         # X-Axis
         # Project on X-axis
@@ -290,8 +277,6 @@ class FlightModel:
         thrust_x = cos(self.theta) * thrust
         # Compute the sum
         F_x = lift_x + drag_x + thrust_x
-
-        # print("F_x", F_x, "lift_x", lift_x, "thurst_x", thrust_x)
 
         # Check if we are on the ground, if so prevent from going underground by setting  vertical position and vertical speed to 0.
         if self.check_colisions() and F_z <= 0:
@@ -346,6 +331,15 @@ class FlightModel:
         self.Pos_vec[0].append(self.Pos[0])
         self.Pos_vec[1].append(self.Pos[1])
 
+    def altitude_factor(self):
+        """
+        Compute the reducting in reactor's power with rising altitude.
+        """
+        alt = self.Pos[1]
+        a = 1 / (math.exp(alt / 7500))
+        
+        return max(0, min(1, a ** (0.7)))
+
     def print_kpis(self):
         """
         Print interesting values : max alt, max and min acceleration, max and min speed.
@@ -372,6 +366,7 @@ class FlightModel:
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
         Variables : Thrust is a %, theta in degrees, number of episodes (no unit)
+        This is made for plotting, testing and debugging purposes and will not be used by RL agent.
         """
         # switch theta from degrees to radians and store it in the class
         self.theta = np.radians(theta)
@@ -429,18 +424,22 @@ class FlightModel:
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
         Variables : Thrust in N, theta in degrees, number of episodes (no unit)
+        This will be used by the RL environment.
         """
         # switch theta from degrees to radians and store it in the class
         # self.theta = np.radians(5)
         action_vec = self.action_vec[action]
         thrust_factor = action_vec[0] / 10
-        self.theta = np.radians(action_vec[1] * 5)
+        self.theta = np.radians(action_vec[1])
         # print('timestep',self.timestep)
         self.timestep += 1
         self.fuel_consumption()
         # Apply the atitude factor to the thrust
 
         thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX
+
+
+
         
 
         # Compute the dynamics for the episode
@@ -451,35 +450,9 @@ class FlightModel:
             ceil(self.V[0]),
             floor(self.V[1]),
         ]
-        # done = self.done()
-        # reward = self.reward(done)
         return self.obs
 
-    # def done(self):
-    #     self.finished = self.Pos[1] > 10000
-    #     return (self.finished) or (self.timestep > self.timestep_max)
-
-    # def reward(self, done):
-    #     reward = 0
-    #     if done:
-    #         if (self.finished):
-    #             reward += 1000
-    #         else:
-    #             reward += -1000
-    #     else:
-    #         if self.Pos[1] > 0:
-    #             reward += self.Pos[0] + self.Pos[1]
-    #         else:
-    #             reward += self.Pos[0]
-    #     return reward
-    def altitude_factor(self):
-        """
-        Compute the reducting in reactor's power with rising altitude.
-        """
-        alt = self.Pos[1]
-        a = 1 / (math.exp(alt / 7500))
-        
-        return max(0, min(1, a ** (0.7)))
+    
 
     def plot_graphs(self,save_figs=False):
         """
@@ -494,6 +467,23 @@ class FlightModel:
         -Altitude factor vs Altitude
         """
 
+        Cz = [self.C_z(np.radians(alpha)) for alpha in range(-5,15)]
+        alpha = [alpha for alpha in range(-5,15)]
+        Series = [alpha, Cz]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Lift coefficient"
+        title = "Lift coefficient vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+
+        Cx = [self.C_x(np.radians(alpha)) for alpha in range(-5,15)]
+        alpha = [alpha for alpha in range(-5,15)]
+        Series = [alpha, Cx]
+        xlabel = "Angle of attack (°)"
+        ylabel = "Drag coefficient"
+        title = "Drag coefficient vs angle of attack"
+        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+
+
         Series = [self.Fuel_vec]
         labels = ["Remaining fuel (kg)"]
         xlabel = "time (s)"
@@ -501,23 +491,18 @@ class FlightModel:
         title = "Remaining fuel vs time"
         plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
 
-        Series = [self.alpha_vec, self.C_vec[0]]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Drag coefficient"
-        title = "Drag coefficient vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.alpha_vec, self.C_vec[0]]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Drag coefficient"
+        # title = "Drag coefficient vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        Series = [self.alpha_vec, self.C_vec[1]]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Lift coefficient"
-        title = "Lift coefficient vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.alpha_vec, self.C_vec[1]]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Lift coefficient"
+        # title = "Lift coefficient vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
-        Series = [self.alpha_vec, self.C_vec[0]]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Drag coefficient"
-        title = "Drag coefficient vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
         Series = [self.alpha_vec, self.S_vec[1]]
         xlabel = "Angle of attack (°)"

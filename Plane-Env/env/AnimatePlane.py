@@ -99,7 +99,9 @@ def animate_plane():
             self.player_list = arcade.SpriteList()
 
             # Set up the plane
-            self.player_sprite = Player("plane.png", SPRITE_SCALING)
+            self.player_sprite = Player(
+                os.path.join("Assets", "plane.png"), SPRITE_SCALING
+            )
             self.player_sprite.center_x = SCREEN_WIDTH / 2
             self.player_sprite.center_y = SCREEN_HEIGHT / 2
             self.player_list.append(self.player_sprite)

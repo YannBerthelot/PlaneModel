@@ -10,6 +10,8 @@ class PlaneEnvironment(Environment):
         self.FlightModel = FlightModel()
         self.NUM_ACTIONS = len(self.FlightModel.action_vec)
         self.max_step_per_episode = 1000
+        self.finished = False
+        self.episode_end = False
 
     def states(self):
         return dict(type="float", shape=(4,))
@@ -28,34 +30,28 @@ class PlaneEnvironment(Environment):
 
     def reset(self):
         state = np.zeros(shape=(4,))
-        self.FlightModel.reset()
+        self.FlightModel = FlightModel()
         return state
 
     def execute(self, actions):
         assert 0 <= actions.item() <= self.NUM_ACTIONS
         next_state = self.FlightModel.compute_timestep(actions)
         terminal = self.terminal()
-        reward = self.reward(terminal)
+        reward = self.reward()
         return next_state, terminal, reward
 
     def terminal(self):
-        self.finished = self.FlightModel.Pos[1] > 1000
-        self.episode_end = self.FlightModel.timestep > self.max_step_per_episode
+        self.finished = self.FlightModel.Pos[1] > 25
+        self.episode_end = (self.FlightModel.timestep > self.max_step_per_episode) or (
+            self.FlightModel.Pos[0] > 5000
+        )
         return self.finished or self.episode_end
 
-    def reward(self, terminal):
-        reward = (self.FlightModel.Pos[1] ** 2) - (self.FlightModel.Pos[0] / 10)
-        # if terminal:
-        #     if self.FlightModel.finished:
-        #         reward += 1000
-        #     else:
-        #         reward += -1000
-        # else:
-        #     if self.FlightModel.Pos[1] > 0:
-        #         reward += (
-        #             np.mean(self.FlightModel.V_vec[0])
-        #             + ceil(np.mean(self.FlightModel.V_vec[1])) ** 2
-        #         )
-        #     else:
-        #         reward += np.mean(self.FlightModel.V_vec[0])
+    def reward(self):
+        if self.finished:
+            reward = (5000 - self.FlightModel.Pos[0])**2
+        elif self.episode_end:
+            reward = -5000
+        else:
+            reward = -1
         return reward
