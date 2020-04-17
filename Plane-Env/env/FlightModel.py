@@ -454,7 +454,7 @@ class FlightModel:
 
     
 
-    def plot_graphs(self,save_figs=False):
+    def plot_graphs(self,save_figs=False,path=None):
         """
         Plot interesting graphs over timesteps :
         -Vertical drag against Vertical speed
@@ -467,21 +467,21 @@ class FlightModel:
         -Altitude factor vs Altitude
         """
 
-        Cz = [self.C_z(np.radians(alpha)) for alpha in range(-5,15)]
-        alpha = [alpha for alpha in range(-5,15)]
-        Series = [alpha, Cz]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Lift coefficient"
-        title = "Lift coefficient vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Cz = [self.C_z(np.radians(alpha)) for alpha in range(-5,15)]
+        # alpha = [alpha for alpha in range(-5,15)]
+        # Series = [alpha, Cz]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Lift coefficient"
+        # title = "Lift coefficient vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
-        Cx = [self.C_x(np.radians(alpha)) for alpha in range(-5,15)]
-        alpha = [alpha for alpha in range(-5,15)]
-        Series = [alpha, Cx]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Drag coefficient"
-        title = "Drag coefficient vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Cx = [self.C_x(np.radians(alpha)) for alpha in range(-5,15)]
+        # alpha = [alpha for alpha in range(-5,15)]
+        # Series = [alpha, Cx]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Drag coefficient"
+        # title = "Drag coefficient vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
 
         Series = [self.Fuel_vec]
@@ -489,7 +489,7 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Remaining fuel (kg)"
         title = "Remaining fuel vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         # Series = [self.alpha_vec, self.C_vec[0]]
         # xlabel = "Angle of attack (°)"
@@ -504,23 +504,23 @@ class FlightModel:
         # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
 
 
-        Series = [self.alpha_vec, self.S_vec[1]]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Vertical reference surface (m2)"
-        title = "Vertical reference surface vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.alpha_vec, self.S_vec[1]]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Vertical reference surface (m2)"
+        # title = "Vertical reference surface vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
-        Series = [self.alpha_vec, self.S_vec[0]]
-        xlabel = "Angle of attack (°)"
-        ylabel = "Horizontal reference surface (m2)"
-        title = "Horizontal reference surface vs angle of attack"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.alpha_vec, self.S_vec[0]]
+        # xlabel = "Angle of attack (°)"
+        # ylabel = "Horizontal reference surface (m2)"
+        # title = "Horizontal reference surface vs angle of attack"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
-        Series = [self.V_vec[1], self.drag_vec[1]]
-        xlabel = "Vertical velocity (m/s)"
-        ylabel = "Vertical drag intensity (N)"
-        title = "Vertical velocity vs Vertical drag intensity"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.V_vec[1], self.drag_vec[1]]
+        # xlabel = "Vertical velocity (m/s)"
+        # ylabel = "Vertical drag intensity (N)"
+        # title = "Vertical velocity vs Vertical drag intensity"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         #Angles
         Force_vec_z = [element * self.m for element in self.A_vec[1]]
@@ -529,7 +529,7 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Angle values (°)"
         title = "Angles vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         #Z-axis
         Force_vec_z = [element * self.m for element in self.A_vec[1]]
@@ -538,7 +538,7 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Force intensity (N)"
         title = "Vertical forces vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         # X-axis
         Force_vec_x = [element * self.m for element in self.A_vec[0]]
@@ -547,41 +547,41 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Force intensity (N)"
         title = "Horizontal forces vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
         
         Series = [self.A_vec[0],self.A_vec[1]]
         labels = ["Horizontal acceleration", "Vertical acceleration"]
         xlabel = "time (s)"
         ylabel = "Acceleration (m.s-2)"
         title = "Acceleration vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         Series = [self.V_vec[0],self.V_vec[1]]
         labels = ["Horizontal velocity", "Vertical velocity"]
         xlabel = "time (s)"
         ylabel = "Velociy (m.s-1)"
         title = "Velocity vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         Series = [self.Pos_vec[0],self.Pos_vec[1]]
         labels = ["Horizontal position", "Vertical position"]
         xlabel = "time (s)"
         ylabel = "Distance from origin (m)"
         title = "Position vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
-        Series = [self.Pos_vec[1], self.alt_factor_vec]
-        xlabel = "Altitude (m)"
-        ylabel = "Altitude factor"
-        title = "Altitude factor vs altitude"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs)
+        # Series = [self.Pos_vec[1], self.alt_factor_vec]
+        # xlabel = "Altitude (m)"
+        # ylabel = "Altitude factor"
+        # title = "Altitude factor vs altitude"
+        # plot_xy(Series, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
         Series = [self.C_vec[0],self.C_vec[1]]
         labels = ["Drag coefficient", "Lift coefficient"]
         xlabel = "time (s)"
         ylabel = "Coefficient (no unit)"
         title = "Drag and lift coefficients vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
 
     def _animate_plane(self):
         animate_plane(self.Pos_vec, self.theta_vec)

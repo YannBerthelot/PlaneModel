@@ -8,7 +8,8 @@ from env.AnimatePlane import animate_plane
 from tensorforce import Agent, Environment
 from tensorforce.core.networks import AutoNetwork
 from env.graph_utils import plot_duo, plot_multiple
-
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def train_info(i, n_episodes, start_time):
     temp_time = time.time() - start_time
@@ -49,6 +50,8 @@ def train(n_episodes, max_step_per_episode):
     """
     start_time = time.time()
     environment.FlightModel.max_step_per_episode = max_step_per_episode
+    global_reward_vec = []
+    global_reward_mean_vec = []
     for i in range(n_episodes):
         sum_rewards = 0.0
         episode_length = 0
@@ -70,15 +73,23 @@ def train(n_episodes, max_step_per_episode):
             reward_vec.append(reward)
             agent.observe(terminal=terminal, reward=reward)
             sum_rewards += reward
+            
             if terminal:
                 terminal_info(
                     thrust_vec, theta_vec, episode_length, states, actions, sum_rewards
                 )
+        global_reward_vec.append(sum_rewards)
+        global_reward_mean_vec.append(np.mean(global_reward_vec))
     show_policy(thrust_vec, theta_vec, reward_vec)
     end_time = time.time()
     total_time = end_time - start_time
     print("total_time", total_time, "total reward", np.sum(reward_vec))
-
+    Series = [global_reward_vec,global_reward_mean_vec]
+    labels = ["Reward","Mean reward"]
+    xlabel = "time (s)"
+    ylabel = "Reward"
+    title = "Global Reward vs time"
+    plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
 
 def test(n_episodes, max_step_per_episode):
     start_time = time.time()
@@ -127,6 +138,7 @@ def show_policy(thrust_vec, theta_vec, reward_vec):
     ylabel = "Reward"
     title = "Reward vs time"
     plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
+    
 
 
 # Instantiate our Flight Model
@@ -134,33 +146,48 @@ FlightModel = FlightModel()
 # Instantiane our environment
 environment = PlaneEnvironment()
 # Instantiate a Tensorforce agent
-policy = dict(network=dict(type="auto", size=8, depth=3, internal_rnn=2))
+policy = dict(network=dict(type="auto", size=128, depth=5))
 
+# agent = Agent.create(
+#     agent="tensorforce",
+#     environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
+#     memory=1000,
+#     update=dict(unit="episodes", batch_size=1),
+#     optimizer=dict(type="adam", learning_rate=1e-3),
+#     policy=policy,
+#     objective="value",
+#     reward_estimation=dict(horizon=1000, estimate_actions=True),
+#     exploration=0.02,
+#     parallel_interactions=4,
+#     seed=124,
+# )
 agent = Agent.create(
-    agent="tensorforce",
+    agent="dqn",
     environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
-    memory=100000,
-    update=dict(unit="episodes", batch_size=1),
-    optimizer=dict(type="adam", learning_rate=1e-3),
-    policy=policy,
-    objective="policy_gradient",
-    reward_estimation=dict(horizon=1000, estimate_actions=True),
-    exploration=0.03,
-    parallel_interactions=4,
+    memory=10000,
+    horizon = 10,
+    exploration=0.05,
+    batch_size=32,
+    discount=0.3,
+    variable_noise=0.00001 ,
+    entropy_regularization=0.02,
     seed=124,
+    estimate_terminal =True,
 )
+
 
 
 # Define train parameters
 max_step_per_episode = 1000
-n_episodes = 500
+n_episodes = 1000
 # Train agent
 train(n_episodes, max_step_per_episode)
 
 # Define test parameters
 n_episodes = 10
-# Test Agent
+# # Test Agent
 test(n_episodes, max_step_per_episode)
+environment.FlightModel.plot_graphs(save_figs=True,path="env")
 
 
 # Save last run positions

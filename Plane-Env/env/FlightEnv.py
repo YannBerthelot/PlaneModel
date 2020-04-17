@@ -1,7 +1,8 @@
 from .FlightModel import FlightModel
 import numpy as np
-from math import ceil
+from math import ceil,exp
 from tensorforce.environments import Environment
+from numpy.linalg import norm
 
 
 class PlaneEnvironment(Environment):
@@ -43,15 +44,15 @@ class PlaneEnvironment(Environment):
     def terminal(self):
         self.finished = self.FlightModel.Pos[1] > 25
         self.episode_end = (self.FlightModel.timestep > self.max_step_per_episode) or (
-            self.FlightModel.Pos[0] > 5000
+            self.FlightModel.Pos[0] > 2500
         )
         return self.finished or self.episode_end
 
     def reward(self):
         if self.finished:
-            reward = (5000 - self.FlightModel.Pos[0])**2
-        elif self.episode_end:
-            reward = -5000
+            reward = (2500 - self.FlightModel.Pos[0])
+        # elif self.episode_end:
+        #     reward = -3000
         else:
             reward = -1
         return reward

@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 
-def plot_xy(Series, xlabel, ylabel, title, save_fig=False):
+def plot_xy(Series, xlabel, ylabel, title, save_fig=False, path=None):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
@@ -12,7 +12,10 @@ def plot_xy(Series, xlabel, ylabel, title, save_fig=False):
     ax.set_xlabel(xlabel)
     ax.set_title(title)
     if save_fig:
-        plt.savefig(os.path.join("Graphs", title))
+        if path:
+            plt.savefig(os.path.join(path, "Graphs", title))
+        else:
+            plt.savefig(os.path.join("Graphs", title))
     else:
         plt.show()
 
