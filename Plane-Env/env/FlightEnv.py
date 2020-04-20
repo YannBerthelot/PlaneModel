@@ -44,15 +44,13 @@ class PlaneEnvironment(Environment):
     def terminal(self):
         self.finished = self.FlightModel.Pos[1] > 25
         self.episode_end = (self.FlightModel.timestep > self.max_step_per_episode) or (
-            self.FlightModel.Pos[0] > 2500
+            self.FlightModel.Pos[0] > 3000
         )
         return self.finished or self.episode_end
 
     def reward(self):
         if self.finished:
-            reward = (2500 - self.FlightModel.Pos[0])
-        # elif self.episode_end:
-        #     reward = -3000
+            reward = np.log(((3000 - self.FlightModel.Pos[0])**2))
         else:
             reward = -1
         return reward

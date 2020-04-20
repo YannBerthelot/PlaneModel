@@ -122,6 +122,7 @@ def test(n_episodes, max_step_per_episode):
     total_time = end_time - start_time
     print("total_time", total_time, "total reward", np.sum(reward_vec))
     print("Mean episode reward:", sum_rewards / n_episodes)
+    return sum_rewards / n_episodes
 
 
 def show_policy(thrust_vec, theta_vec, reward_vec):
@@ -146,7 +147,7 @@ FlightModel = FlightModel()
 # Instantiane our environment
 environment = PlaneEnvironment()
 # Instantiate a Tensorforce agent
-policy = dict(network=dict(type="auto", size=128, depth=5))
+policy = dict(network=dict(type="auto", size=128, depth=6))
 
 # agent = Agent.create(
 #     agent="tensorforce",
@@ -161,35 +162,37 @@ policy = dict(network=dict(type="auto", size=128, depth=5))
 #     parallel_interactions=4,
 #     seed=124,
 # )
-agent = Agent.create(
-    agent="dqn",
-    environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
-    memory=10000,
-    horizon = 10,
-    exploration=0.05,
-    batch_size=32,
-    discount=0.3,
-    variable_noise=0.00001 ,
-    entropy_regularization=0.02,
-    seed=124,
-    estimate_terminal =True,
-)
+mean_reward_vec = []
+for i in range(25,26):
+    agent = Agent.create(
+        agent="dueling_dqn",
+        environment=environment,  # alternatively: states, actions, (max_episode_timesteps)
+        memory=10000,
+        horizon = 25,
+        exploration=0.05,
+        batch_size=32,
+        discount=0.1,
+        seed=124,
+        l2_regularization =0.001,
+        estimate_terminal = True,
+    )
 
 
 
-# Define train parameters
-max_step_per_episode = 1000
-n_episodes = 1000
-# Train agent
-train(n_episodes, max_step_per_episode)
+    # Define train parameters
+    max_step_per_episode = 1000
+    n_episodes = 2000
+    # Train agent
+    train(n_episodes, max_step_per_episode)
 
-# Define test parameters
-n_episodes = 10
-# # Test Agent
-test(n_episodes, max_step_per_episode)
-environment.FlightModel.plot_graphs(save_figs=True,path="env")
+    # Define test parameters
+    n_episodes = 10
+    # # Test Agent
+    mean_reward_vec.append(test(n_episodes, max_step_per_episode))
+    environment.FlightModel.plot_graphs(save_figs=True,path="env")
 
-
+print(mean_reward_vec)
+pd.Series(mean_reward_vec).to_csv('Discount.csv')
 # Save last run positions
 write_to_txt(environment)
 # Animate last run positions
