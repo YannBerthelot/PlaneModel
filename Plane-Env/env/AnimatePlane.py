@@ -52,12 +52,11 @@ def animate_plane():
             self.angle = theta_vec[self.i]
             # print("i", self.i, "x_vec", x_vec)
 
-            x_scale_factor = 0.1
+            x_scale_factor = 0.5
             y_scale_factor = 1
 
             # Use math to find our change based on our speed and angle
             self.center_x = 100 + x_vec[self.i] * x_scale_factor
-
             self.center_y = y_vec[self.i] * y_scale_factor + 300
             delta = 1
             if self.i + delta < len(x_vec):
@@ -124,6 +123,7 @@ def animate_plane():
             """ Movement and game logic """
             # Call update on all sprites
             self.player_list.update()
+            self.player_sprite.change_angle = -1
 
     window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     window.setup()

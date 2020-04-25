@@ -25,7 +25,7 @@ class FlightModel:
         self.C_x_min = 0.095  # Drag coefficient
         self.C_z_max = 0.9  # Lift coefficient
         self.THRUST_MAX = 120000 * 2  # Max thrust in Newtons
-        self.DELTA_T = 0.1  # Timestep size in seconds
+        self.DELTA_T = 1  # Timestep size in seconds
         self.V_R = 77  # VR for takeoff (R is for Rotate)
         self.MAX_SPEED = 250  # Max speed bearable by the plane
         self.flaps_factor = 1.5  # Lift improvement due to flaps
@@ -94,7 +94,8 @@ class FlightModel:
         self.action_vec = [
             [thrust, theta] for thrust in range(5, 11) for theta in range(0, 15)
         ]
-
+        self.thrust_act_vec = [thrust for thrust in range(5,11)]
+        self.theta_act_vec = [theta for theta in range(0,15)]
         """
         OBSERVATIONS
         States vec for RL stocking position and velocity
@@ -250,7 +251,7 @@ class FlightModel:
         S_z = self.S_z(alpha)
         C_x = self.C_x(alpha)
         C_z = self.C_z(alpha)
-        
+
         if self.Pos[1] > 122:
             self.flaps_factor = 1
         else:
@@ -428,9 +429,11 @@ class FlightModel:
         """
         # switch theta from degrees to radians and store it in the class
         # self.theta = np.radians(5)
-        action_vec = self.action_vec[action]
-        thrust_factor = action_vec[0] / 10
-        self.theta = np.radians(action_vec[1])
+        # action_vec = self.action_vec[action]
+        # thrust_factor = action_vec[0] / 10
+        # self.theta = np.radians(action_vec[1])
+        thrust_factor = (action["thrust"]+5)/10
+        self.theta = np.radians(action["theta"])
         # print('timestep',self.timestep)
         self.timestep += 1
         self.fuel_consumption()
@@ -449,6 +452,10 @@ class FlightModel:
             ceil(self.Pos[1]),
             ceil(self.V[0]),
             floor(self.V[1]),
+        ]
+        self.obs = [
+            ceil(self.Pos[0]),
+            ceil(self.Pos[1]),
         ]
         return self.obs
 
