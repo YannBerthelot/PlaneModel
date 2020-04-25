@@ -1,0 +1,5 @@
+*.pyc
+.DS_Store
+env/
+.csv
+.h5f
