@@ -46,21 +46,61 @@ def GridSearchTensorForce(
         for param_index, param_name in enumerate(param_grid_list):
             param_grid[param_name] = params[param_index]
 
+        # agent = Agent.create(
+        #     agent=param_grid["agent"],
+        #     environment=PlaneEnvironment(),  # alternatively: states, actions, (max_episode_timesteps)
+        #     memory=param_grid["memory"],
+        #     network=dict(
+        #         type=param_grid["network"],
+        #         size=param_grid["size"],
+        #         depth=param_grid["depth"],
+        #     ),
+        #     horizon=param_grid["horizon"],
+        #     exploration=param_grid["exploration"],
+        #     batch_size=param_grid["batch_size"],
+        #     discount=param_grid["discount"],
+        #     seed=param_grid["seed"],
+        #     estimate_terminal=param_grid["estimate_terminals"],
+        # )
         agent = Agent.create(
-            agent=param_grid["agent"],
-            environment=PlaneEnvironment(),  # alternatively: states, actions, (max_episode_timesteps)
-            memory=param_grid["memory"],
-            network=dict(
-                type=param_grid["network"],
-                size=param_grid["size"],
-                depth=param_grid["depth"],
-            ),
-            horizon=param_grid["horizon"],
-            exploration=param_grid["exploration"],
+            agent="ppo",
+            environment=environment,
+            # Automatically configured network
+            network="auto",
+            # Optimization
             batch_size=param_grid["batch_size"],
+            update_frequency=param_grid["update_frequency"],
+            learning_rate=param_grid["learning_rate"],
+            subsampling_fraction=param_grid["subsampling_fraction"],
+            optimization_steps=param_grid["optimization_steps"],
+            # Reward estimation
+            likelihood_ratio_clipping=param_grid["likelihood_ratio_clipping"],
             discount=param_grid["discount"],
-            seed=param_grid["seed"],
-            estimate_terminal=param_grid["estimate_terminals"],
+            estimate_terminal=param_grid["estimate_terminal"],
+            # Critic
+            critic_network="auto",
+            critic_optimizer=dict(
+                optimizer="adam",
+                multi_step=param_grid["multi_step"],
+                learning_rate=param_grid["learning_rate_critic"],
+            ),
+            # Preprocessing
+            preprocessing=None,
+            # Exploration
+            exploration=param_grid["exploration"],
+            variable_noise=param_grid["variable_noise"],
+            # Regularization
+            l2_regularization=param_grid["l2_regularization"],
+            entropy_regularization=param_grid["entropy_regularization"],
+            # TensorFlow etc
+            name="agent",
+            device=None,
+            parallel_interactions=1,
+            seed=None,
+            execution=None,
+            saver=None,
+            summarizer=None,
+            recorder=None,
         )
         scores.append(trainer(environment, agent, max_step_per_episode, n_episodes))
         names.append(str(param_grid))
@@ -78,9 +118,8 @@ def show_policy(thrust_vec, theta_vec, reward_vec):
     ylabel = "Force intensity (N)/Angle value (°)"
     title = "Policy vs time"
     plot_duo(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
-    cumulative_reward = np.cumsum(reward_vec)
-    Series = [reward_vec, cumulative_reward]
-    labels = ["Reward", "Cumulative reward"]
+    Series = [reward_vec]
+    labels = ["Reward"]
     xlabel = "time (s)"
     ylabel = "Reward"
     title = "Reward vs time"
@@ -148,7 +187,7 @@ def train(environment, agent, n_episodes, max_step_per_episode):
             thrust_vec.append(round(actions["thrust"], 2))
             theta_vec.append(round(actions["theta"], 2))
             states, terminal, reward = environment.execute(actions=actions)
-            reward_vec.append(reward)
+
             agent.observe(terminal=terminal, reward=reward)
             sum_rewards += reward
 
@@ -158,7 +197,8 @@ def train(environment, agent, n_episodes, max_step_per_episode):
                 )
         global_reward_vec.append(sum_rewards)
         global_reward_mean_vec.append(np.mean(global_reward_vec))
-    # show_policy(thrust_vec, theta_vec, reward_vec)
+        reward_vec.append(environment.FlightModel.Pos[0])
+    show_policy(thrust_vec, theta_vec, reward_vec)
     end_time = time.time()
     total_time = end_time - start_time
     print("total_time", total_time, "total reward", np.sum(reward_vec))
@@ -190,13 +230,13 @@ def test(environment, agent, n_episodes, max_step_per_episode):
             thrust_vec.append(round(actions["thrust"], 2))
             theta_vec.append(round(actions["theta"], 2))
             states, terminal, reward = environment.execute(actions=actions)
-            reward_vec.append(reward)
+            reward_vec.append(environment.FlightModel.Pos[0])
             sum_rewards += reward
             if terminal:
                 terminal_info(
                     thrust_vec, theta_vec, episode_length, states, actions, sum_rewards
                 )
-    show_policy(thrust_vec, theta_vec, reward_vec)
+    # show_policy(thrust_vec, theta_vec, reward_vec)
     end_time = time.time()
     total_time = end_time - start_time
     print("total_time", total_time, "total reward", np.sum(reward_vec))
