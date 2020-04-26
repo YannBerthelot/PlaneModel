@@ -3,24 +3,55 @@ import pandas as pd
 import os
 
 
-def plot_xy(Series, xlabel, ylabel, title, save_fig=False, path=None):
+def plot_xy(
+    Series,
+    xlabel,
+    ylabel,
+    title,
+    save_fig=False,
+    path=None,
+    folder=None,
+    kind="Line",
+    same_xy=False,
+):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
-    ax.plot(Series[0], Series[1])
+    if kind == "Line":
+        ax.plot(Series[0], Series[1])
+    elif kind == "Scatter":
+        ax.scatter(Series[0], Series[1])
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_title(title)
+    if same_xy:
+        plt.xlim(
+            min(min(Series[1]), min(Series[0])), max(max(Series[1]), max(Series[0]))
+        )
+        plt.ylim(
+            min(min(Series[1]), min(Series[0])), max(max(Series[1]), max(Series[0]))
+        )
     if save_fig:
         if path:
-            plt.savefig(os.path.join(path, "Graphs", title))
+            if folder:
+                plt.savefig(os.path.join(path, "Graphs", str(folder), title))
+            else:
+                plt.savefig(os.path.join(path, "Graphs", title))
         else:
-            plt.savefig(os.path.join("Graphs", title))
+            if folder:
+                plt.savefig(os.path.join("Graphs", title))
+                plt.close()
+            else:
+                plt.savefig(os.path.join("Graphs", str(folder), title))
+                plt.close()
     else:
         plt.show()
+    plt.close(fig="all")
 
 
-def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False, path=None):
+def plot_duo(
+    Series, labels, xlabel, ylabel, title, save_fig=False, path=None, folder=None
+):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
@@ -52,14 +83,25 @@ def plot_duo(Series, labels, xlabel, ylabel, title, save_fig=False, path=None):
     ax.set_title(title)
     if save_fig:
         if path:
-            plt.savefig(os.path.join(path, "Graphs", title))
+            if folder:
+                plt.savefig(os.path.join(path, "Graphs", str(folder), title))
+            else:
+                plt.savefig(os.path.join(path, "Graphs", title))
         else:
-            plt.savefig(os.path.join("Graphs", title))
+            if folder:
+                plt.savefig(os.path.join("Graphs", title))
+                plt.close()
+            else:
+                plt.savefig(os.path.join("Graphs", str(folder), title))
+                plt.close()
     else:
         plt.show()
+    plt.close(fig="all")
 
 
-def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False, path=None):
+def plot_multiple(
+    Series, labels, xlabel, ylabel, title, save_fig=False, path=None, folder=None
+):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
     Series = [pd.Series(s) for s in Series]
@@ -88,8 +130,17 @@ def plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=False, path=No
     ax.set_title(title)
     if save_fig:
         if path:
-            plt.savefig(os.path.join(path, "Graphs", title))
+            if folder:
+                plt.savefig(os.path.join(path, "Graphs", str(folder), title))
+            else:
+                plt.savefig(os.path.join(path, "Graphs", title))
         else:
-            plt.savefig(os.path.join("Graphs", title))
+            if folder:
+                plt.savefig(os.path.join("Graphs", title))
+                plt.close()
+            else:
+                plt.savefig(os.path.join("Graphs", str(folder), title))
+                plt.close()
     else:
         plt.show()
+    plt.close(fig="all")

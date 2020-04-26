@@ -1,11 +1,10 @@
 import os
-import itertools
-from tensorforce import Agent, Environment
 import time
-from env.graph_utils import plot_duo, plot_multiple
+import itertools
 import numpy as np
 import matplotlib.pyplot as plt
-from env.FlightEnv import PlaneEnvironment
+from tensorforce import Agent
+from env.graph_utils import plot_duo, plot_multiple
 
 
 def write_to_txt(environment):
@@ -18,6 +17,18 @@ def write_to_txt(environment):
     angles = environment.FlightModel.theta_vec
     text_file = open("env/angles.txt", "w")
     n = text_file.write(str(angles))
+    text_file.close()
+
+
+def write_combination_to_txt(param_dict, folder=None):
+    cur_path = os.path.dirname(__file__)
+    if folder:
+        new_path = os.path.join("env", "Graphs", str(folder), "params.txt")
+    else:
+        new_path = os.path.relpath("env/params.txt", cur_path)
+
+    text_file = open(new_path, "w")
+    n = text_file.write(str(param_dict))
     text_file.close()
 
 
@@ -41,6 +52,7 @@ def GridSearchTensorForce(
     names = []
     for i, params in enumerate(param_combinations, 1):
         print("Combination", i, "/", total_param_combinations)
+
         # fill param dict with params
         param_grid = {}
         for param_index, param_name in enumerate(param_grid_list):
@@ -102,35 +114,64 @@ def GridSearchTensorForce(
             summarizer=None,
             recorder=None,
         )
-        scores.append(trainer(environment, agent, max_step_per_episode, n_episodes))
+        try:
+            os.mkdir(os.path.join("env", "Graphs", str(i)))
+        except:
+            pass
+        scores.append(
+            trainer(environment, agent, max_step_per_episode, n_episodes, combination=i)
+        )
         names.append(str(param_grid))
+
+        write_combination_to_txt(param_grid, folder=str(i))
     dict_scores = dict(zip(names, scores))
     write_results_to_txt(dict_scores)
+
     best_model = min(dict_scores, key=dict_scores.get)
     print("best model", best_model)
     print("best model score", dict_scores[best_model])
 
 
-def show_policy(thrust_vec, theta_vec, reward_vec):
+def show_policy(thrust_vec, theta_vec, reward_vec, combination):
     Series = [thrust_vec, theta_vec]
     labels = ["Thrust", "Theta"]
     xlabel = "time (s)"
     ylabel = "Force intensity (N)/Angle value (°)"
     title = "Policy vs time"
-    plot_duo(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
+    plot_duo(
+        Series,
+        labels,
+        xlabel,
+        ylabel,
+        title,
+        save_fig=True,
+        path="env",
+        folder=str(combination),
+    )
     Series = [reward_vec]
     labels = ["Reward"]
     xlabel = "time (s)"
     ylabel = "Reward"
     title = "Reward vs time"
-    plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
+    plot_multiple(
+        Series,
+        labels,
+        xlabel,
+        ylabel,
+        title,
+        save_fig=True,
+        path="env",
+        folder=str(combination),
+    )
     plt.close(fig="all")
 
 
-def train_info(i, n_episodes, start_time):
+def train_info(i, n_episodes, start_time, combination):
     temp_time = time.time() - start_time
     time_per_episode = temp_time / (i + 1)
     print(
+        "combination : ",
+        combination,
         "episode : ",
         i,
         "/",
@@ -160,7 +201,7 @@ def terminal_info(thrust_vec, theta_vec, episode_length, states, actions, sum_re
     )
 
 
-def train(environment, agent, n_episodes, max_step_per_episode):
+def train(environment, agent, n_episodes, max_step_per_episode, combination):
     """
     Train agent for n_episodes
     """
@@ -168,17 +209,18 @@ def train(environment, agent, n_episodes, max_step_per_episode):
     environment.FlightModel.max_step_per_episode = max_step_per_episode
     global_reward_vec = []
     global_reward_mean_vec = []
+    reward_vec = []
     for i in range(n_episodes):
         sum_rewards = 0.0
         episode_length = 0
-        train_info(i, n_episodes, start_time)
+        train_info(i, n_episodes, start_time, combination)
         # Initialize episode
         states = environment.reset()
         internals = agent.initial_internals()
         terminal = False
         thrust_vec = []
         theta_vec = []
-        reward_vec = []
+
         while not terminal:
             episode_length += 1
             # Episode timestep
@@ -198,7 +240,7 @@ def train(environment, agent, n_episodes, max_step_per_episode):
         global_reward_vec.append(sum_rewards)
         global_reward_mean_vec.append(np.mean(global_reward_vec))
         reward_vec.append(environment.FlightModel.Pos[0])
-    show_policy(thrust_vec, theta_vec, reward_vec)
+    show_policy(thrust_vec, theta_vec, reward_vec, combination)
     end_time = time.time()
     total_time = end_time - start_time
     print("total_time", total_time, "total reward", np.sum(reward_vec))
@@ -207,10 +249,19 @@ def train(environment, agent, n_episodes, max_step_per_episode):
     xlabel = "time (s)"
     ylabel = "Reward"
     title = "Global Reward vs time"
-    plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=True, path="env")
+    plot_multiple(
+        Series,
+        labels,
+        xlabel,
+        ylabel,
+        title,
+        save_fig=True,
+        path="env",
+        folder=str(combination),
+    )
 
 
-def test(environment, agent, n_episodes, max_step_per_episode):
+def test(environment, agent, n_episodes, max_step_per_episode, combination):
     start_time = time.time()
     environment.FlightModel.max_step_per_episode = max_step_per_episode
     sum_rewards = 0.0
@@ -244,11 +295,24 @@ def test(environment, agent, n_episodes, max_step_per_episode):
     return sum_rewards / n_episodes
 
 
-def trainer(environment, agent, max_step_per_episode, n_episodes, n_episodes_test=1):
+def trainer(
+    environment,
+    agent,
+    max_step_per_episode,
+    n_episodes,
+    n_episodes_test=1,
+    combination=1,
+):
     # Train agent
-    train(environment, agent, n_episodes, max_step_per_episode)
+    train(environment, agent, n_episodes, max_step_per_episode, combination=combination)
     # # Test Agent
-    test(environment, agent, n_episodes_test, max_step_per_episode)
+    test(
+        environment,
+        agent,
+        n_episodes_test,
+        max_step_per_episode,
+        combination=combination,
+    )
     # environment.FlightModel.plot_graphs(save_figs=True, path="env")
     agent.close()
     environment.close()
