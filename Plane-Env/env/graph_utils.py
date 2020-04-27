@@ -13,6 +13,7 @@ def plot_xy(
     folder=None,
     kind="Line",
     same_xy=False,
+    time=True,
 ):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
@@ -50,7 +51,15 @@ def plot_xy(
 
 
 def plot_duo(
-    Series, labels, xlabel, ylabel, title, save_fig=False, path=None, folder=None
+    Series,
+    labels,
+    xlabel,
+    ylabel,
+    title,
+    save_fig=False,
+    path=None,
+    folder=None,
+    time=True,
 ):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
@@ -59,11 +68,12 @@ def plot_duo(
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     locs, xticks_labels = plt.xticks()
-    if len(Series[0]) < 10000:
-        xticks_labels = [int(int(loc) / 10) for loc in locs]
-    else:
-        xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
-        ax.set_xlabel(xlabel[:-3] + "(h)")
+    if time:
+        if len(Series[0]) < 10000:
+            xticks_labels = [int(int(loc) / 10) for loc in locs]
+        else:
+            xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
+            ax.set_xlabel(xlabel[:-3] + "(h)")
 
     plt.xticks(locs, xticks_labels)
     ax2 = ax.twinx()
@@ -100,7 +110,15 @@ def plot_duo(
 
 
 def plot_multiple(
-    Series, labels, xlabel, ylabel, title, save_fig=False, path=None, folder=None
+    Series,
+    labels,
+    xlabel,
+    ylabel,
+    title,
+    save_fig=False,
+    path=None,
+    folder=None,
+    time=True,
 ):
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25, left=0.25)
@@ -111,11 +129,12 @@ def plot_multiple(
         ax.set_ylabel(ylabel)
         ax.set_xlabel(xlabel)
     locs, xticks_labels = plt.xticks()
-    if len(Series[0]) < 10000:
-        xticks_labels = [int(int(loc) / 10) for loc in locs]
-    else:
-        xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
-        ax.set_xlabel(xlabel[:-3] + "(h)")
+    if time:
+        if len(Series[0]) < 10000:
+            xticks_labels = [int(int(loc) / 10) for loc in locs]
+        else:
+            xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
+            ax.set_xlabel(xlabel[:-3] + "(h)")
     plt.xticks(locs, xticks_labels)
     lines = ax.get_lines()
     box = ax.get_position()

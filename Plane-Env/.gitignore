@@ -1,5 +1,7 @@
 *.pyc
 .DS_Store
-env/
-.csv
+env/Assets
+env/Graphs
+*.csv
 .h5f
+*.ipynb

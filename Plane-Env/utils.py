@@ -74,11 +74,16 @@ def GridSearchTensorForce(
         #     seed=param_grid["seed"],
         #     estimate_terminal=param_grid["estimate_terminals"],
         # )
+        directory = os.path.join(os.getcwd(), "env", "Models", str(i))
         agent = Agent.create(
             agent="ppo",
             environment=environment,
             # Automatically configured network
-            network="auto",
+            network=dict(
+                type=param_grid["network"],
+                size=param_grid["size"],
+                depth=param_grid["depth"],
+            ),
             # Optimization
             batch_size=param_grid["batch_size"],
             update_frequency=param_grid["update_frequency"],
@@ -105,15 +110,16 @@ def GridSearchTensorForce(
             l2_regularization=param_grid["l2_regularization"],
             entropy_regularization=param_grid["entropy_regularization"],
             # TensorFlow etc
-            name="agent",
+            name="agent_" + str(i),
             device=None,
             parallel_interactions=1,
-            seed=None,
+            seed=124,
             execution=None,
-            saver=None,
+            recorder=dict(directory=directory, frequency=1000),
             summarizer=None,
-            recorder=None,
+            saver=dict(directory=directory, filename="agent_" + str(i)),
         )
+        # agent = Agent.load(directory="data/checkpoints")
         try:
             os.mkdir(os.path.join("env", "Graphs", str(i)))
         except:
@@ -122,13 +128,14 @@ def GridSearchTensorForce(
             trainer(environment, agent, max_step_per_episode, n_episodes, combination=i)
         )
         names.append(str(param_grid))
+        directory = os.path.join(os.getcwd(), "env", "Models")
 
         write_combination_to_txt(param_grid, folder=str(i))
     dict_scores = dict(zip(names, scores))
     write_results_to_txt(dict_scores)
 
     best_model = min(dict_scores, key=dict_scores.get)
-    print("best model", best_model)
+    print("best model", best_model, "best model number", np.argmin(scores))
     print("best model score", dict_scores[best_model])
 
 
@@ -147,12 +154,13 @@ def show_policy(thrust_vec, theta_vec, reward_vec, combination):
         save_fig=True,
         path="env",
         folder=str(combination),
+        time=True,
     )
     Series = [reward_vec]
     labels = ["Reward"]
-    xlabel = "time (s)"
+    xlabel = "episodes"
     ylabel = "Reward"
-    title = "Reward vs time"
+    title = "Reward vs episodes"
     plot_multiple(
         Series,
         labels,
@@ -162,6 +170,7 @@ def show_policy(thrust_vec, theta_vec, reward_vec, combination):
         save_fig=True,
         path="env",
         folder=str(combination),
+        time=False,
     )
     plt.close(fig="all")
 
