@@ -1,8 +1,6 @@
 from .FlightModel import FlightModel
 import numpy as np
-from math import ceil, exp
 from tensorforce.environments import Environment
-from numpy.linalg import norm
 
 
 class PlaneEnvironment(Environment):
@@ -15,7 +13,7 @@ class PlaneEnvironment(Environment):
         self.max_step_per_episode = 1000
         self.finished = False
         self.episode_end = False
-        self.STATES_SIZE = 2
+        self.STATES_SIZE = len(self.FlightModel.obs)
 
     def states(self):
         return dict(type="float", shape=(self.STATES_SIZE,))
@@ -41,7 +39,6 @@ class PlaneEnvironment(Environment):
         return state
 
     def execute(self, actions):
-        # assert 0 <= actions.item() <= self.NUM_ACTIONS
         next_state = self.FlightModel.compute_timestep(actions)
         terminal = self.terminal()
         reward = self.reward()

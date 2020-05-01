@@ -2,6 +2,7 @@
 .DS_Store
 env/Assets
 env/Graphs
+env/Models
+env/Distances
 *.csv
 .h5f
-*.ipynb

@@ -427,36 +427,22 @@ class FlightModel:
         Variables : Thrust in N, theta in degrees, number of episodes (no unit)
         This will be used by the RL environment.
         """
-        # switch theta from degrees to radians and store it in the class
-        # self.theta = np.radians(5)
-        # action_vec = self.action_vec[action]
-        # thrust_factor = action_vec[0] / 10
-        # self.theta = np.radians(action_vec[1])
-        thrust_factor = (action["thrust"]+5)/10
-        self.theta = np.radians(action["theta"])
-        # print('timestep',self.timestep)
-        self.timestep += 1
-        self.fuel_consumption()
-        # Apply the atitude factor to the thrust
 
-        thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX
-
-
-
-        
+        thrust_factor = (action["thrust"]+5)/10 #shift the thrust percentage from 0 to 50%, to 50% to 100%
+        self.theta = np.radians(action["theta"]) #convert the pitch angle to radians
+        self.timestep += 1 #increment timestep
+        self.fuel_consumption() #call the fuel consumption
+        thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX # Apply the atitude factor to the thrust
 
         # Compute the dynamics for the episode
         self.compute_dyna(thrust_modified)
         self.obs = [
-            ceil(self.Pos[0]),
-            ceil(self.Pos[1]),
-            ceil(self.V[0]),
+            floor(self.Pos[0]),
+            floor(self.Pos[1]),
+            floor(self.V[0]),
             floor(self.V[1]),
         ]
-        self.obs = [
-            ceil(self.Pos[0]),
-            ceil(self.Pos[1]),
-        ]
+
         return self.obs
 
     
@@ -595,7 +581,6 @@ class FlightModel:
 
 
 if __name__ == "__main__":
-    # Create Model
 
     # Run simulation over number of episodes, with thrust and theta
     def max_speed_study():
