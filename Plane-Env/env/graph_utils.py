@@ -41,13 +41,10 @@ def plot_xy(
         else:
             if folder:
                 plt.savefig(os.path.join("Graphs", title))
-                plt.close()
             else:
                 plt.savefig(os.path.join("Graphs", str(folder), title))
-                plt.close()
     else:
         plt.show()
-    plt.close(fig="all")
 
 
 def plot_duo(

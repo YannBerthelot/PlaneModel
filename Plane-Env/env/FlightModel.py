@@ -642,11 +642,11 @@ if __name__ == "__main__":
         distances = list(dic_results_2.values())
         angle_values = list(dic_results_2.keys())
         angle_values = [angle-0 for angle in angle_values]
-        Series = [angle_values, distances ]
-        xlabel = "Take-off pitch (°)"
-        ylabel = "Take-off distance (m)"
-        title = "Take-off distance vs take-off pitch"
-        plot_xy(Series, xlabel, ylabel, title, save_fig=True)
+        plot_xy(Series = [angle_values, distances ], 
+        xlabel="Take-off pitch (°)", 
+        ylabel="Take-off distance (m)", 
+        title="Take-off distance vs take-off pitch", 
+        save_fig=True)
 
 
     #TO_angle_vs_TO_dist_study()

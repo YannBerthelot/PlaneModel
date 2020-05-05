@@ -1,6 +1,6 @@
-from .FlightModel import FlightModel
 import numpy as np
 from tensorforce.environments import Environment
+from .FlightModel import FlightModel
 
 
 class PlaneEnvironment(Environment):

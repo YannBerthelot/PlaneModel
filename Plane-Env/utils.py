@@ -1,23 +1,24 @@
 import os
 import time
 import itertools
+import shutil
+from collections import namedtuple
 import numpy as np
-import matplotlib.pyplot as plt
 from tensorforce import Agent
 from env.graph_utils import plot_duo, plot_multiple
 
 
-def write_to_txt(environment):
+def write_to_txt_general(data, path):
     cur_path = os.path.dirname(__file__)
-    new_path = os.path.relpath("env/positions.txt", cur_path)
-    positions = environment.FlightModel.Pos_vec
+    new_path = os.path.relpath("env/" + str(path), cur_path)
     text_file = open(new_path, "w")
-    n = text_file.write(str(positions))
+    n = text_file.write(str(data))
     text_file.close()
-    angles = environment.FlightModel.theta_vec
-    text_file = open("env/angles.txt", "w")
-    n = text_file.write(str(angles))
-    text_file.close()
+
+
+def write_pos_and_angles_to_txt(environment):
+    write_to_txt_general(environment.FlightModel.Pos_vec, "positions.txt")
+    write_to_txt_general(environment.FlightModel.theta_vec, "angles.txt")
 
 
 def write_combination_to_txt(param_dict, folder=None):
@@ -32,143 +33,128 @@ def write_combination_to_txt(param_dict, folder=None):
     text_file.close()
 
 
-def write_results_to_txt(param_dict):
-    cur_path = os.path.dirname(__file__)
-    new_path = os.path.relpath("env/results.txt", cur_path)
-    text_file = open(new_path, "w")
-    n = text_file.write(str(param_dict))
-    text_file.close()
+def create_agent(param_grid, i, directory, environment):
+    return Agent.create(
+        agent="ppo",
+        environment=environment,
+        # Automatically configured network
+        network=dict(
+            type=param_grid["network"],
+            size=param_grid["size"],
+            depth=param_grid["depth"],
+        ),
+        # Optimization
+        batch_size=param_grid["batch_size"],
+        update_frequency=param_grid["update_frequency"],
+        learning_rate=param_grid["learning_rate"],
+        subsampling_fraction=param_grid["subsampling_fraction"],
+        optimization_steps=param_grid["optimization_steps"],
+        # Reward estimation
+        likelihood_ratio_clipping=param_grid["likelihood_ratio_clipping"],
+        discount=param_grid["discount"],
+        estimate_terminal=param_grid["estimate_terminal"],
+        # Critic
+        critic_network="auto",
+        critic_optimizer=dict(
+            optimizer="adam",
+            multi_step=param_grid["multi_step"],
+            learning_rate=param_grid["learning_rate_critic"],
+        ),
+        # Preprocessing
+        preprocessing=None,
+        # Exploration
+        exploration=param_grid["exploration"],
+        variable_noise=param_grid["variable_noise"],
+        # Regularization
+        l2_regularization=param_grid["l2_regularization"],
+        entropy_regularization=param_grid["entropy_regularization"],
+        # TensorFlow etc
+        name="agent_" + str(i),
+        device=None,
+        parallel_interactions=5,
+        seed=124,
+        execution=None,
+        recorder=dict(directory=directory, frequency=1000),
+        summarizer=None,
+        saver=dict(directory=directory, filename="agent_" + str(i)),
+    )
 
 
-def write_to_txt_general(data, path):
-    cur_path = os.path.dirname(__file__)
-    new_path = os.path.relpath("env/" + str(path), cur_path)
-    text_file = open(new_path, "w")
-    n = text_file.write(str(data))
-    text_file.close()
-
-
-def GridSearchTensorForce(
+def gridsearch_tensorforce(
     environment, param_grid_list, max_step_per_episode, n_episodes
 ):
-    lists = param_grid_list.values()
-    param_combinations = list(itertools.product(*lists))
+    GridSearch = namedtuple("GridSearch", ["scores", "names"])
+    gridsearch = GridSearch([], [])
 
-    total_param_combinations = len(param_combinations)
-    print("Number of combinations", total_param_combinations)
-    scores = []
-    names = []
-    scores_vec = {}
+    # Compute the different parameters combinations
+    param_combinations = list(itertools.product(*param_grid_list.values()))
     for i, params in enumerate(param_combinations, 1):
-        print("Combination", i, "/", total_param_combinations)
-
-        # fill param dict with params
-        param_grid = {}
-        for param_index, param_name in enumerate(param_grid_list):
-            param_grid[param_name] = params[param_index]
-
-        directory = os.path.join(os.getcwd(), "env", "Models", str(i))
-        agent = Agent.create(
-            agent="ppo",
-            environment=environment,
-            # Automatically configured network
-            network=dict(
-                type=param_grid["network"],
-                size=param_grid["size"],
-                depth=param_grid["depth"],
-            ),
-            # Optimization
-            batch_size=param_grid["batch_size"],
-            update_frequency=param_grid["update_frequency"],
-            learning_rate=param_grid["learning_rate"],
-            subsampling_fraction=param_grid["subsampling_fraction"],
-            optimization_steps=param_grid["optimization_steps"],
-            # Reward estimation
-            likelihood_ratio_clipping=param_grid["likelihood_ratio_clipping"],
-            discount=param_grid["discount"],
-            estimate_terminal=param_grid["estimate_terminal"],
-            # Critic
-            critic_network="auto",
-            critic_optimizer=dict(
-                optimizer="adam",
-                multi_step=param_grid["multi_step"],
-                learning_rate=param_grid["learning_rate_critic"],
-            ),
-            # Preprocessing
-            preprocessing=None,
-            # Exploration
-            exploration=param_grid["exploration"],
-            variable_noise=param_grid["variable_noise"],
-            # Regularization
-            l2_regularization=param_grid["l2_regularization"],
-            entropy_regularization=param_grid["entropy_regularization"],
-            # TensorFlow etc
-            name="agent_" + str(i),
-            device=None,
-            parallel_interactions=1,
-            seed=124,
-            execution=None,
-            recorder=dict(directory=directory, frequency=1000),
-            summarizer=None,
-            saver=dict(directory=directory, filename="agent_" + str(i)),
-        )
-        # agent = Agent.load(directory="data/checkpoints")
-        try:
+        if not os.path.exists(os.path.join("env", "Graphs", str(i))):
             os.mkdir(os.path.join("env", "Graphs", str(i)))
-        except:
-            pass
+        # fill param dict with params
+        param_grid = {
+            param_name: params[param_index]
+            for param_index, param_name in enumerate(param_grid_list)
+        }
+        directory = os.path.join(os.getcwd(), "env", "Models", str(i))
+        if os.path.exists(directory):
+            shutil.rmtree(directory, ignore_errors=True)
 
-        pos, results_vec = trainer(
-            environment, agent, max_step_per_episode, n_episodes, combination=i
+        agent = create_agent(param_grid, i, directory, environment)
+        # agent = Agent.load(directory="data/checkpoints")
+        gridsearch.scores.append(
+            trainer(
+                environment,
+                agent,
+                max_step_per_episode,
+                n_episodes,
+                combination=i,
+                total_combination=len(param_combinations),
+            )
         )
-        scores.append(pos)
-        scores_vec[i] = results_vec
-        names.append(str(param_grid))
-        directory = os.path.join(os.getcwd(), "env", "Models")
-
-        write_combination_to_txt(param_grid, folder=str(i))
-    dict_scores = dict(zip(names, scores))
-    write_results_to_txt(dict_scores)
-
+        store_results_and_graphs(i, environment, param_grid)
+        gridsearch.names.append(str(param_grid))
+    dict_scores = dict(zip(gridsearch.names, gridsearch.scores))
+    write_to_txt_general(dict_scores, "results.txt")
     best_model = min(dict_scores, key=dict_scores.get)
-    print("best model", best_model, "best model number", np.argmin(scores))
-    print("best model score", dict_scores[best_model])
+    print(
+        "best model",
+        best_model,
+        "number",
+        np.argmin(gridsearch.scores),
+        "score",
+        dict_scores[best_model],
+    )
 
 
-def show_policy(thrust_vec, theta_vec, reward_vec, combination):
-    Series = [thrust_vec, theta_vec]
-    labels = ["Thrust", "Theta"]
-    xlabel = "time (s)"
-    ylabel = "Force intensity (N)/Angle value (°)"
-    title = "Policy vs time"
+def store_results_and_graphs(i, environment, param_grid):
+    write_pos_and_angles_to_txt(environment)
+    write_combination_to_txt(param_grid, folder=str(i))
+
+
+def show_policy(thrust_vec, theta_vec, distances, combination):
     plot_duo(
-        Series,
-        labels,
-        xlabel,
-        ylabel,
-        title,
+        Series=[thrust_vec, theta_vec],
+        labels=["Thrust", "Theta"],
+        xlabel="time (s)",
+        ylabel="Force intensity (N)/Angle value (°)",
+        title="Policy vs time",
         save_fig=True,
         path="env",
         folder=str(combination),
         time=True,
     )
-    Series = [reward_vec]
-    labels = ["Reward"]
-    xlabel = "episodes"
-    ylabel = "Reward"
-    title = "Reward vs episodes"
     plot_multiple(
-        Series,
-        labels,
-        xlabel,
-        ylabel,
-        title,
+        Series=[distances],
+        labels=["TO-Distance"],
+        xlabel="episodes",
+        ylabel="TO-Distance (m)",
+        title="Distance vs episodes",
         save_fig=True,
         path="env",
         folder=str(combination),
         time=False,
     )
-    plt.close(fig="all")
 
 
 def train_info(i, n_episodes, start_time, combination):
@@ -190,121 +176,112 @@ def train_info(i, n_episodes, start_time, combination):
     )
 
 
-def terminal_info(thrust_vec, theta_vec, episode_length, states, actions, sum_rewards):
+def terminal_info(episode, states, actions):
     print("actions", actions, "states", states)
     print(
         "mean reward",
-        int(sum_rewards / episode_length),
+        np.mean(episode.rewards),
         "mean action",
-        round(np.mean(thrust_vec), 2),
-        round(np.mean(theta_vec), 2),
+        round(np.mean(episode.thrust_values), 2),
+        round(np.mean(episode.theta_values), 2),
         "std",
-        round(np.std(thrust_vec), 2),
-        round(np.std(theta_vec), 2),
+        round(np.std(episode.thrust_values), 2),
+        round(np.std(episode.theta_values), 2),
         "episode length",
-        episode_length,
+        len(episode.rewards),
     )
 
 
-def train(environment, agent, n_episodes, max_step_per_episode, combination):
+def run(
+    environment,
+    agent,
+    n_episodes,
+    max_step_per_episode,
+    combination,
+    total_combination,
+    test=False,
+):
     """
     Train agent for n_episodes
     """
-    start_time = time.time()
     environment.FlightModel.max_step_per_episode = max_step_per_episode
-    global_reward_vec = []
-    global_reward_mean_vec = []
-    reward_vec = []
-    for i in range(n_episodes):
-        sum_rewards = 0.0
-        episode_length = 0
-        if (i + 1) % 50 == 0:
+    Score = namedtuple("Score", ["reward", "reward_mean", "distance"])
+    score = Score([], [], [])
+
+    start_time = time.time()
+    for i in range(1, n_episodes + 1):
+        # Variables initialization
+        Episode = namedtuple("Episode", ["rewards", "thrust_values", "theta_values"],)
+        episode = Episode([], [], [])
+
+        if total_combination == 1 and (
+            i % 50 == 0
+        ):  # Print training information every 50 episodes
             train_info(i, n_episodes, start_time, combination)
+
         # Initialize episode
         states = environment.reset()
         internals = agent.initial_internals()
         terminal = False
-        thrust_vec = []
-        theta_vec = []
 
-        while not terminal:
-            episode_length += 1
-            # Episode timestep
-            actions = agent.act(states=states)
-            # print("actions", actions)
-            thrust_vec.append(round(actions["thrust"], 2))
-            theta_vec.append(round(actions["theta"], 2))
-            states, terminal, reward = environment.execute(actions=actions)
+        while not terminal:  # While an episode has not yet terminated
 
-            agent.observe(terminal=terminal, reward=reward)
-            sum_rewards += reward
+            if test:  # Test mode (deterministic, no exploration)
+                actions, internals = agent.act(
+                    states=states, internals=internals, evaluation=True
+                )
+                states, terminal, reward = environment.execute(actions=actions)
+            else:  # Train mode (exploration and randomness)
+                actions = agent.act(states=states)
+                states, terminal, reward = environment.execute(actions=actions)
+                agent.observe(terminal=terminal, reward=reward)
 
-            if terminal:
-                if (i + 1) % 50 == 0:
-                    terminal_info(
-                        thrust_vec,
-                        theta_vec,
-                        episode_length,
-                        states,
-                        actions,
-                        sum_rewards,
-                    )
-        global_reward_vec.append(sum_rewards)
-        global_reward_mean_vec.append(np.mean(global_reward_vec))
-        reward_vec.append(environment.FlightModel.Pos[0])
-    show_policy(thrust_vec, theta_vec, reward_vec, combination)
-    end_time = time.time()
-    total_time = end_time - start_time
-    print("total_time", total_time, "total reward", np.sum(reward_vec))
-    Series = [global_reward_vec, global_reward_mean_vec]
-    labels = ["Reward", "Mean reward"]
-    xlabel = "time (s)"
-    ylabel = "Reward"
-    title = "Global Reward vs time"
+            episode.thrust_values.append(round(actions["thrust"], 2))
+            episode.theta_values.append(round(actions["theta"], 2))
+            episode.rewards.append(reward)
+            # if terminal and (i % 100 == 0):
+            #     terminal_info(
+            #         episode, states, actions,
+            #     )
+        score.reward.append(np.sum(episode.rewards))
+        score.reward_mean.append(np.mean(score.reward))
+        score.distance.append(environment.FlightModel.Pos[0])
+
+    show_policy(
+        episode.thrust_values, episode.theta_values, score.distance, combination
+    )
     plot_multiple(
-        Series,
-        labels,
-        xlabel,
-        ylabel,
-        title,
+        Series=[score.reward, score.reward_mean],
+        labels=["Reward", "Mean reward"],
+        xlabel="time (s)",
+        ylabel="Reward",
+        title="Global Reward vs time",
         save_fig=True,
         path="env",
         folder=str(combination),
     )
-
-
-def test(environment, agent, n_episodes, max_step_per_episode, combination):
-    start_time = time.time()
-    environment.FlightModel.max_step_per_episode = max_step_per_episode
-    sum_rewards = 0.0
-    for _ in range(n_episodes):
-        states = environment.reset()
-        internals = agent.initial_internals()
-        terminal = False
-        episode_length = 0
-        thrust_vec = []
-        theta_vec = []
-        reward_vec = []
-        while not terminal:
-            episode_length += 1
-            actions, internals = agent.act(
-                states=states, internals=internals, evaluation=True
-            )
-            thrust_vec.append(round(actions["thrust"], 2))
-            theta_vec.append(round(actions["theta"], 2))
-            states, terminal, reward = environment.execute(actions=actions)
-            reward_vec.append(environment.FlightModel.Pos[0])
-            sum_rewards += reward
-            if terminal:
-                terminal_info(
-                    thrust_vec, theta_vec, episode_length, states, actions, sum_rewards
-                )
-    # show_policy(thrust_vec, theta_vec, reward_vec)
-    end_time = time.time()
-    total_time = end_time - start_time
-    print("total_time", total_time, "total reward", np.sum(reward_vec))
-    print("Mean episode reward:", sum_rewards / n_episodes)
     return environment.FlightModel.Pos[0]
+
+
+def batch_information(
+    i, result_vec, combination, total_combination, temp_time, number_batches
+):
+    if result_vec:
+
+        print(
+            "Combination {}/{}, Batch {}/{}, Best result: {},Time per batch {}s, Combination ETA: {}mn{}s, Total ETA: {}mn{}s".format(
+                combination,
+                total_combination,
+                i,
+                number_batches,
+                int(result_vec[-1]),
+                round(temp_time / i, 1),
+                round(((temp_time * number_batches / i) - temp_time) // 60),
+                round(((temp_time * number_batches / i) - temp_time) % 60),
+                round(((temp_time * number_batches / i) * total_combination) // 60),
+                round(((temp_time * number_batches / i) * total_combination) % 60),
+            )
+        )
 
 
 def trainer(
@@ -314,47 +291,63 @@ def trainer(
     n_episodes,
     n_episodes_test=1,
     combination=1,
+    total_combination=1,
 ):
-    # Train agent
+
     result_vec = []
-    for i in range(round(n_episodes / 100)):
-        if result_vec:
-            print("batch", i, "Best result", result_vec[-1])
-        train(environment, agent, 100, max_step_per_episode, combination=combination)
-        # # Test Agent
+    start_time = time.time()
+    number_batches = round(n_episodes / 100) + 1
+    for i in range(1, number_batches):
+        temp_time = time.time() - start_time
+        batch_information(
+            i, result_vec, combination, total_combination, temp_time, number_batches
+        )
+        # Train agent
+        run(
+            environment,
+            agent,
+            100,
+            max_step_per_episode,
+            combination=combination,
+            total_combination=total_combination,
+        )
+        # Test Agent
         result_vec.append(
-            test(
+            run(
                 environment,
                 agent,
                 n_episodes_test,
                 max_step_per_episode,
                 combination=combination,
+                total_combination=total_combination,
+                test=True,
             )
         )
-    # environment.FlightModel.plot_graphs(save_figs=True, path="env")
-    Series = [result_vec]
-    labels = ["Reward"]
-    xlabel = "episodes"
-    ylabel = "Reward"
-    title = "Reward vs episodes"
+    environment.FlightModel.plot_graphs(save_figs=True, path="env")
     plot_multiple(
-        Series,
-        labels,
-        xlabel,
-        ylabel,
-        title,
+        Series=[result_vec],
+        labels=["TO-Distance"],
+        xlabel="episodes",
+        ylabel="Distance (m)",
+        title="TO-Distance vs episodes",
         save_fig=True,
         path="env",
         folder=str(combination),
         time=False,
     )
-    plt.close(fig="all")
     agent.close()
     environment.close()
-    try:
+    save_distances(
+        result_vec, combination
+    )  # saves distances results for each combination in a txt file.
+    return environment.FlightModel.Pos[0]
+
+
+def save_distances(result_vec, combination):
+    """
+    Saves distances results in a txt in the current combination folder
+    """
+    if not os.path.exists(os.path.join("env", "Distances", str(combination))):
         os.mkdir(os.path.join("env", "Distances", str(combination)))
-    except:
-        pass
     write_to_txt_general(result_vec, "Distances/" + str(combination) + "/distances.txt")
-    return environment.FlightModel.Pos[0], result_vec
 
