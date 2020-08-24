@@ -67,7 +67,7 @@ def plot_duo(
     locs, xticks_labels = plt.xticks()
     if time:
         if len(Series[0]) < 10000:
-            xticks_labels = [int(int(loc) / 10) for loc in locs]
+            xticks_labels = [int(int(loc) / 1) for loc in locs]
         else:
             xticks_labels = [round(int(loc) / 36000, 2) for loc in locs]
             ax.set_xlabel(xlabel[:-3] + "(h)")

@@ -144,6 +144,7 @@ def show_policy(thrust_vec, theta_vec, distances, combination):
         folder=str(combination),
         time=True,
     )
+
     plot_multiple(
         Series=[distances],
         labels=["TO-Distance"],
@@ -246,10 +247,10 @@ def run(
         score.reward.append(np.sum(episode.rewards))
         score.reward_mean.append(np.mean(score.reward))
         score.distance.append(environment.FlightModel.Pos[0])
-
-    show_policy(
-        episode.thrust_values, episode.theta_values, score.distance, combination
-    )
+    if not (test):
+        show_policy(
+            episode.thrust_values, episode.theta_values, score.distance, combination
+        )
     plot_multiple(
         Series=[score.reward, score.reward_mean],
         labels=["Reward", "Mean reward"],

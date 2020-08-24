@@ -94,8 +94,8 @@ class FlightModel:
         self.action_vec = [
             [thrust, theta] for thrust in range(5, 11) for theta in range(0, 15)
         ]
-        self.thrust_act_vec = [thrust for thrust in range(5,11)]
-        self.theta_act_vec = [theta for theta in range(0,15)]
+        self.thrust_act_vec = [thrust for thrust in range(5, 11)]
+        self.theta_act_vec = [theta for theta in range(0, 15)]
         """
         OBSERVATIONS
         States vec for RL stocking position and velocity
@@ -188,7 +188,7 @@ class FlightModel:
     def alpha(self, gamma):
         """
         Compute alpha (the angle between the plane's axis and the speed vector).
-        alpha = theta - gamma 
+        alpha = theta - gamma
         """
         alpha = self.theta - gamma
         return alpha
@@ -221,7 +221,7 @@ class FlightModel:
         """
         Compute the acceleration for a timestep based on the thrust by using Newton's second law : F = m.a <=> a = F/m with F the resultant of all forces
         applied on the oject, m its mass and a the acceleration o fthe object.
-        Variables used: 
+        Variables used:
         - P [Weight] in kg
         - V in m/s
         - gamma in rad
@@ -420,7 +420,7 @@ class FlightModel:
         if kpis:
             self.print_kpis()
 
-    def compute_timestep(self, action):
+    def compute_timestep(self, action, number_timesteps):
 
         """
         Compute the dynamics of the the plane over a given numbero f episodes based on thrust and theta values
@@ -430,7 +430,7 @@ class FlightModel:
 
         thrust_factor = (action["thrust"]+5)/10 #shift the thrust percentage from 0 to 50%, to 50% to 100%
         self.theta = np.radians(action["theta"]) #convert the pitch angle to radians
-        self.timestep += 1 #increment timestep
+        self.timestep += number_timesteps #increment timestep
         self.fuel_consumption() #call the fuel consumption
         thrust_modified = thrust_factor * self.altitude_factor() * self.THRUST_MAX # Apply the atitude factor to the thrust
 
@@ -439,15 +439,16 @@ class FlightModel:
         self.obs = [
             floor(self.Pos[0]),
             floor(self.Pos[1]),
-            floor(self.V[0]),
-            floor(self.V[1]),
+            #self.timestep,
+            self.V[0],
+            self.V[1]
         ]
 
         return self.obs
 
     
 
-    def plot_graphs(self,save_figs=False,path=None):
+    def plot_graphs(self, save_figs=False, path=None):
         """
         Plot interesting graphs over timesteps :
         -Vertical drag against Vertical speed
@@ -482,7 +483,7 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Remaining fuel (kg)"
         title = "Remaining fuel vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
         # Series = [self.alpha_vec, self.C_vec[0]]
         # xlabel = "Angle of attack (°)"
@@ -522,46 +523,46 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Angle values (°)"
         title = "Angles vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
         #Z-axis
         Force_vec_z = [element * self.m for element in self.A_vec[1]]
-        Series = [self.lift_vec[1],self.P_vec, self.T_vec[1], self.drag_vec[1], Force_vec_z]
+        Series = [self.lift_vec[1], self.P_vec, self.T_vec[1], self.drag_vec[1], Force_vec_z]
         labels = ["Lift z", "P", "Thrust z", "Drag z", "Total z"]
         xlabel = "time (s)"
         ylabel = "Force intensity (N)"
         title = "Vertical forces vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
         # X-axis
         Force_vec_x = [element * self.m for element in self.A_vec[0]]
-        Series = [self.T_vec[0],self.drag_vec[0],self.lift_vec[0],Force_vec_x]
-        labels = ["Thrust x", "Drag x","Lift x","Total x"]
+        Series = [self.T_vec[0], self.drag_vec[0], self.lift_vec[0],Force_vec_x]
+        labels = ["Thrust x", "Drag x", "Lift x", "Total x"]
         xlabel = "time (s)"
         ylabel = "Force intensity (N)"
         title = "Horizontal forces vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
         
-        Series = [self.A_vec[0],self.A_vec[1]]
+        Series = [self.A_vec[0], self.A_vec[1]]
         labels = ["Horizontal acceleration", "Vertical acceleration"]
         xlabel = "time (s)"
         ylabel = "Acceleration (m.s-2)"
         title = "Acceleration vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
-        Series = [self.V_vec[0],self.V_vec[1]]
+        Series = [self.V_vec[0], self.V_vec[1]]
         labels = ["Horizontal velocity", "Vertical velocity"]
         xlabel = "time (s)"
         ylabel = "Velociy (m.s-1)"
         title = "Velocity vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
-        Series = [self.Pos_vec[0],self.Pos_vec[1]]
+        Series = [self.Pos_vec[0], self.Pos_vec[1]]
         labels = ["Horizontal position", "Vertical position"]
         xlabel = "time (s)"
         ylabel = "Distance from origin (m)"
         title = "Position vs time"
-        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_duo(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
         # Series = [self.Pos_vec[1], self.alt_factor_vec]
         # xlabel = "Altitude (m)"
@@ -574,7 +575,7 @@ class FlightModel:
         xlabel = "time (s)"
         ylabel = "Coefficient (no unit)"
         title = "Drag and lift coefficients vs time"
-        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs,path=path)
+        plot_multiple(Series, labels, xlabel, ylabel, title, save_fig=save_figs, path=path)
 
     def _animate_plane(self):
         animate_plane(self.Pos_vec, self.theta_vec)
@@ -642,10 +643,10 @@ if __name__ == "__main__":
         distances = list(dic_results_2.values())
         angle_values = list(dic_results_2.keys())
         angle_values = [angle-0 for angle in angle_values]
-        plot_xy(Series = [angle_values, distances ], 
-        xlabel="Take-off pitch (°)", 
-        ylabel="Take-off distance (m)", 
-        title="Take-off distance vs take-off pitch", 
+        plot_xy(Series=[angle_values, distances],
+        xlabel="Take-off pitch (°)",
+        ylabel="Take-off distance (m)",
+        title="Take-off distance vs take-off pitch",
         save_fig=True)
 
 

@@ -39,10 +39,18 @@ class PlaneEnvironment(Environment):
         return state
 
     def execute(self, actions):
-        next_state = self.FlightModel.compute_timestep(actions)
-        terminal = self.terminal()
-        reward = self.reward()
-        return next_state, terminal, reward
+        reward = 0
+        nb_timesteps = 1
+        for i in range(1, nb_timesteps + 1):
+            next_state = self.FlightModel.compute_timestep(actions, nb_timesteps)
+            reward += self.reward()
+            if self.terminal():
+                reward = reward / i
+                break
+        if i == nb_timesteps:
+            reward = reward / nb_timesteps
+        # reward = self.reward()
+        return next_state, self.terminal(), reward
 
     def terminal(self):
         self.finished = self.FlightModel.Pos[1] > 25

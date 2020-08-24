@@ -4,5 +4,6 @@ env/Assets
 env/Graphs
 env/Models
 env/Distances
+env/Param_Study
 *.csv
 .h5f
