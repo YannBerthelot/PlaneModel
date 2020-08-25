@@ -42,5 +42,5 @@ def main(animate=False):
 
 
 if __name__ == "__main__":
-    main(animate=False)
+    main(animate=True)
 

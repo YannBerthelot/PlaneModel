@@ -52,8 +52,8 @@ def animate_plane():
             self.angle = theta_vec[self.i]
             # print("i", self.i, "x_vec", x_vec)
 
-            x_scale_factor = 0.2
-            y_scale_factor = 1
+            x_scale_factor = 0.16
+            y_scale_factor = 2
 
             # Use math to find our change based on our speed and angle
             self.center_x = 100 + x_vec[self.i] * x_scale_factor

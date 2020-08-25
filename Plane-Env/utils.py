@@ -16,9 +16,9 @@ def write_to_txt_general(data, path):
     text_file.close()
 
 
-def write_pos_and_angles_to_txt(environment):
-    write_to_txt_general(environment.FlightModel.Pos_vec, "positions.txt")
-    write_to_txt_general(environment.FlightModel.theta_vec, "angles.txt")
+def write_pos_and_angles_to_txt(environment, path):
+    write_to_txt_general(environment.FlightModel.Pos_vec, path + "/positions.txt")
+    write_to_txt_general(environment.FlightModel.theta_vec, path + "/angles.txt")
 
 
 def write_combination_to_txt(param_dict, folder=None):
@@ -128,17 +128,17 @@ def gridsearch_tensorforce(
 
 
 def store_results_and_graphs(i, environment, param_grid):
-    write_pos_and_angles_to_txt(environment)
+    write_pos_and_angles_to_txt(environment, "")
     write_combination_to_txt(param_grid, folder=str(i))
 
 
-def show_policy(thrust_vec, theta_vec, distances, combination):
+def show_policy(thrust_vec, theta_vec, distances, combination, title="Policy vs time"):
     plot_duo(
         Series=[thrust_vec, theta_vec],
         labels=["Thrust", "Theta"],
         xlabel="time (s)",
         ylabel="Force intensity (N)/Angle value (°)",
-        title="Policy vs time",
+        title=title,
         save_fig=True,
         path="env",
         folder=str(combination),
@@ -200,6 +200,7 @@ def run(
     max_step_per_episode,
     combination,
     total_combination,
+    batch,
     test=False,
 ):
     """
@@ -249,8 +250,23 @@ def run(
         score.distance.append(environment.FlightModel.Pos[0])
     if not (test):
         show_policy(
-            episode.thrust_values, episode.theta_values, score.distance, combination
+            episode.thrust_values,
+            episode.theta_values,
+            score.distance,
+            combination,
+            title="pvt_train_" + str(batch),
         )
+    if test:
+        show_policy(
+            episode.thrust_values,
+            episode.theta_values,
+            score.distance,
+            combination,
+            title="pvt_" + str(batch),
+        )
+        if not os.path.exists(os.path.join("env", "Pos_and_angles", str(batch))):
+            os.mkdir(os.path.join("env", "Pos_and_angles", str(batch)))
+        write_pos_and_angles_to_txt(environment, "Pos_and_angles/" + str(batch))
     plot_multiple(
         Series=[score.reward, score.reward_mean],
         labels=["Reward", "Mean reward"],
@@ -311,6 +327,7 @@ def trainer(
             max_step_per_episode,
             combination=combination,
             total_combination=total_combination,
+            batch=i,
         )
         # Test Agent
         result_vec.append(
@@ -321,6 +338,7 @@ def trainer(
                 max_step_per_episode,
                 combination=combination,
                 total_combination=total_combination,
+                batch=i,
                 test=True,
             )
         )
@@ -339,16 +357,17 @@ def trainer(
     agent.close()
     environment.close()
     save_distances(
-        result_vec, combination
+        result_vec, combination, environment
     )  # saves distances results for each combination in a txt file.
     return environment.FlightModel.Pos[0]
 
 
-def save_distances(result_vec, combination):
+def save_distances(result_vec, combination, environment):
     """
     Saves distances results in a txt in the current combination folder
     """
     if not os.path.exists(os.path.join("env", "Distances", str(combination))):
         os.mkdir(os.path.join("env", "Distances", str(combination)))
     write_to_txt_general(result_vec, "Distances/" + str(combination) + "/distances.txt")
+    write_pos_and_angles_to_txt(environment, "Distances/" + str(combination))
 
