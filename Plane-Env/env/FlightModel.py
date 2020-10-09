@@ -11,8 +11,10 @@ from .graph_utils import plot_duo, plot_multiple, plot_xy
 # from .test_animation import animate_plane
 
 
-class FlightModel:
-    def __init__(self):
+class FlightModel():
+    def __init__(self, task="take-off"):
+
+        self.task = task
         """
         CONSTANTS
         Constants used throughout the model
@@ -41,15 +43,24 @@ class FlightModel:
         self.crashed = False
 
         """
-        DYNAMICS
+        DYNAMICS/INITIAL POSITION
         Acceleration, speed, position, theta and misc variable that will evolve at every timestep.
         """
-        self.A = [(0), (0)]  # Acceleration vector
-        self.V = [(0), (0)]  # Speed Vector
-        self.Pos = [(0), (0)]  # Position vector
-        self.theta = 0  # Angle between the plane's axis and the ground
+        if self.task == "take-off":
+            self.initial_altitude = 0
+            self.A = [(0), (0)]  # Acceleration vector
+            self.V = [(0), (0)]  # Speed Vector
+            self.Pos = [(0), (self.initial_altitude)]  # Position vector
+            self.theta = 0  # Angle between the plane's axis and the ground
+            
+        elif self.task == "level-flight":
+            self.initial_altitude = 10000
+            self.A = [(0), (0)]  # Acceleration vector
+            self.V = [(245), (0)]  # Speed Vector
+            self.Pos = [(0), (self.initial_altitude)]  # Position vector
+            self.theta = 0  # Angle between the plane's axis and the ground
         self.thrust_modified = 0  # Thrust after the influence of altitude factor
-        self.M = 0  # Mach number
+        self.M = norm(self.V) / 343  # Mach number
 
         """
         LISTS FOR PLOT:
@@ -100,7 +111,10 @@ class FlightModel:
         OBSERVATIONS
         States vec for RL stocking position and velocity
         """
-        self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+        if self.task == "take-off":
+            self.obs = [self.Pos[0], self.Pos[1], self.V[0], self.V[1]]
+        elif self.task == "level-flight":
+            self.obs = [self.Pos[1], self.V[0], self.V[1], self.A[0], self.A[1]]
 
     def fuel_consumption(self):
         """
@@ -280,13 +294,15 @@ class FlightModel:
         F_x = lift_x + drag_x + thrust_x
 
         # Check if we are on the ground, if so prevent from going underground by setting  vertical position and vertical speed to 0.
-        if self.check_colisions() and F_z <= 0:
-            F_z = 0
-            energy = 0.5 * self.m * self.V[1] ** 2
-            if energy > self.critical_energy:
-                self.crashed = True
-            self.V[1] = 0
-            self.Pos[1] = 0
+        task = "level-flight"
+        if task == "take-off":
+            if self.check_colisions() and F_z <= 0:
+                F_z = 0
+                energy = 0.5 * self.m * self.V[1] ** 2
+                if energy > self.critical_energy:
+                    self.crashed = True
+                self.V[1] = 0
+                self.Pos[1] = 0
 
         # Compute Acceleration using a = F/m
         A = [F_x / self.m, F_z / self.m]
@@ -436,14 +452,16 @@ class FlightModel:
 
         # Compute the dynamics for the episode
         self.compute_dyna(thrust_modified)
-        self.obs = [
-            floor(self.Pos[0]),
-            floor(self.Pos[1]),
-            #self.timestep,
-            self.V[0],
-            self.V[1]
-        ]
-
+        if self.task == "take-off":
+            self.obs = [
+                floor(self.Pos[0]),
+                floor(self.Pos[1]),
+                #self.timestep,
+                self.V[0],
+                self.V[1]
+            ]
+        elif self.task == "level-flight":
+            self.obs = [self.Pos[1], self.V[0], self.V[1], self.A[0], self.A[1]]
         return self.obs
 
     

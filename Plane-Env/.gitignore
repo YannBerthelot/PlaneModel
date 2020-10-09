@@ -5,5 +5,8 @@ env/Graphs
 env/Models
 env/Distances
 env/Param_Study
+env/Pos_and_angles
 *.csv
 .h5f
+*.txt
+*.ipynb

@@ -39,9 +39,10 @@ def create_agent(param_grid, i, directory, environment):
         environment=environment,
         # Automatically configured network
         network=dict(
-            type=param_grid["network"],
-            size=param_grid["size"],
-            depth=param_grid["depth"],
+            type="auto",
+            size=64,
+            depth=8
+            final_size=1,
         ),
         # Optimization
         batch_size=param_grid["batch_size"],
@@ -132,13 +133,26 @@ def store_results_and_graphs(i, environment, param_grid):
     write_combination_to_txt(param_grid, folder=str(i))
 
 
-def show_policy(thrust_vec, theta_vec, distances, combination, title="Policy vs time"):
+def show_policy(
+    thrust_vec, theta_vec, x, z, distances, combination, title="Policy vs time"
+):
     plot_duo(
         Series=[thrust_vec, theta_vec],
         labels=["Thrust", "Theta"],
         xlabel="time (s)",
         ylabel="Force intensity (N)/Angle value (°)",
         title=title,
+        save_fig=True,
+        path="env",
+        folder=str(combination),
+        time=True,
+    )
+    plot_duo(
+        Series=[x, z],
+        labels=["x", "z"],
+        xlabel="time (s)",
+        ylabel="Distance (m)",
+        title=title+"_pos",
         save_fig=True,
         path="env",
         folder=str(combination),
@@ -213,8 +227,11 @@ def run(
     start_time = time.time()
     for i in range(1, n_episodes + 1):
         # Variables initialization
-        Episode = namedtuple("Episode", ["rewards", "thrust_values", "theta_values"],)
-        episode = Episode([], [], [])
+        Episode = namedtuple(
+            "Episode",
+            ["rewards", "thrust_values", "theta_values", "x_values", "z_values"],
+        )
+        episode = Episode([], [], [], [], [])
 
         if total_combination == 1 and (
             i % 50 == 0
@@ -240,6 +257,8 @@ def run(
 
             episode.thrust_values.append(round(actions["thrust"], 2))
             episode.theta_values.append(round(actions["theta"], 2))
+            episode.x_values.append(environment.FlightModel.Pos[0])
+            episode.z_values.append(environment.FlightModel.Pos[1])
             episode.rewards.append(reward)
             # if terminal and (i % 100 == 0):
             #     terminal_info(
@@ -247,11 +266,20 @@ def run(
             #     )
         score.reward.append(np.sum(episode.rewards))
         score.reward_mean.append(np.mean(score.reward))
-        score.distance.append(environment.FlightModel.Pos[0])
+        task = "level-flight"
+        if task == "take-off":
+            score.distance.append(environment.FlightModel.Pos[0])
+        elif task == "level-flight":
+            initial_alt = environment.FlightModel.initial_altitude
+            diff_alt = -abs(initial_alt - environment.FlightModel.Pos[1])
+            score.distance.append(diff_alt)
+            # print(diff_alt)
     if not (test):
         show_policy(
             episode.thrust_values,
             episode.theta_values,
+            episode.x_values,
+            episode.z_values,
             score.distance,
             combination,
             title="pvt_train_" + str(batch),
@@ -260,6 +288,8 @@ def run(
         show_policy(
             episode.thrust_values,
             episode.theta_values,
+            episode.x_values,
+            episode.z_values,
             score.distance,
             combination,
             title="pvt_" + str(batch),
